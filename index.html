@@ -1,0 +1,2932 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Perpignan 3D Studio — Ville réelle vers jeu vidéo 3D</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+  <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script type="importmap">
+  { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  } }
+  </script>
+  <style>
+    :root {
+      --bg-0: #090c12; --bg-1: #111622; --bg-2: #182032; --bg-3: #222d44; --border: #2a3652;
+      --text: #eef2ff; --muted: #94a3b8; --accent: #3b82f6; --accent-2: #8b5cf6; --success: #10b981;
+      --warning: #f59e0b; --danger: #ef4444; --cyan: #06b6d4; --terra: #c8643c; --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    [hidden] { display: none !important; }
+    html, body { height: 100%; width: 100%; background: var(--bg-0); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; font-size: 13px; }
+    body { overflow: hidden; }
+    .app { display: grid; grid-template-columns: 330px 1fr 350px; grid-template-rows: auto 1fr;
+      grid-template-areas: "top top top" "left view right"; height: 100vh; height: 100dvh; width: 100vw; }
+
+    .topbar { grid-area: top; background: linear-gradient(90deg, #0d1320 0%, #1a1420 100%); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; gap: 10px; flex-wrap: wrap; min-height: 54px; z-index: 20; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; white-space: nowrap; }
+    .brand-badge { background: linear-gradient(135deg, var(--terra), #e0a23c); color: #fff; width: 32px; height: 32px; border-radius: 8px;
+      display: grid; place-items: center; font-weight: 800; font-size: 12px; box-shadow: 0 2px 10px rgba(200, 100, 60, .4); }
+    .brand small { color: #f4c27a; font-size: 11px; font-weight: 600; background: rgba(224, 162, 60, .12); border: 1px solid rgba(224, 162, 60, .35); padding: 2px 7px; border-radius: 99px; }
+    .search-bar { flex: 1; max-width: 520px; display: flex; gap: 6px; min-width: 200px; }
+    .search-bar input { flex: 1; }
+    .tabs { display: flex; gap: 6px; }
+
+    button, .btn { background: var(--bg-2); color: var(--text); border: 1px solid var(--border); padding: 7px 11px; border-radius: 8px;
+      font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s ease; display: inline-flex; align-items: center;
+      justify-content: center; gap: 6px; touch-action: manipulation; }
+    button:hover { background: var(--bg-3); border-color: #3d4f78; }
+    button.primary { background: linear-gradient(135deg, var(--accent), #2563eb); border-color: #3b82f6; color: #fff; }
+    button.purple { background: linear-gradient(135deg, var(--accent-2), #6d28d9); border-color: #8b5cf6; color: #fff; }
+    button.success { background: linear-gradient(135deg, var(--success), #059669); border-color: #10b981; color: #fff; }
+    button.terra { background: linear-gradient(135deg, var(--terra), #a84a26); border-color: #d9774c; color: #fff; }
+    button.danger { background: rgba(239, 68, 68, .16); border-color: rgba(239, 68, 68, .45); color: #fca5a5; }
+    button.active { background: rgba(59, 130, 246, .22); border-color: var(--accent); color: #93c5fd; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    button.big { padding: 11px 12px; font-size: 13px; }
+
+    .panel { background: var(--bg-1); overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; -webkit-overflow-scrolling: touch; }
+    .panel.left { grid-area: left; border-right: 1px solid var(--border); }
+    .panel.right { grid-area: right; border-left: 1px solid var(--border); }
+    .card { background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; display: flex; flex-direction: column; gap: 9px; }
+    .card-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #cbd5e1; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .card-title .badge { color: var(--cyan); font-size: 11px; text-transform: none; letter-spacing: 0; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label { font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+    .field label span.val { color: var(--cyan); font-weight: 700; }
+    input[type="text"], input[type="number"], select, textarea { background: var(--bg-0); border: 1px solid var(--border); color: var(--text);
+      padding: 7px 10px; border-radius: 7px; font-size: 12px; outline: none; width: 100%; }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+    .row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .row > * { flex: 1; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+    .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .check-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #cbd5e1; background: var(--bg-0); border: 1px solid var(--border);
+      padding: 6px 8px; border-radius: 7px; cursor: pointer; }
+    .check-item input { width: auto; accent-color: var(--accent); }
+    .check-item.wide { grid-column: 1 / -1; }
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .stat-box { background: var(--bg-0); border: 1px solid var(--border); border-radius: 8px; padding: 7px 8px; }
+    .stat-box .k { font-size: 10px; color: var(--muted); text-transform: uppercase; }
+    .stat-box .v { font-size: 14px; font-weight: 800; margin-top: 2px; }
+    .hint { font-size: 11px; color: var(--muted); line-height: 1.45; background: rgba(59, 130, 246, .08); border: 1px solid rgba(59, 130, 246, .25); padding: 8px 10px; border-radius: 8px; }
+    .hint.warn { background: rgba(245, 158, 11, .08); border-color: rgba(245, 158, 11, .3); }
+    .progress { height: 8px; background: var(--bg-0); border: 1px solid var(--border); border-radius: 99px; overflow: hidden; }
+    .progress > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--terra), #e0a23c); transition: width .25s; }
+    .log { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 10.5px; line-height: 1.45; background: var(--bg-0); border: 1px solid var(--border);
+      border-radius: 8px; padding: 7px 8px; max-height: 190px; overflow-y: auto; color: #cbd5e1; white-space: pre-wrap; word-break: break-word; }
+    .log .ok { color: #6ee7b7; } .log .warn { color: #fcd34d; } .log .err { color: #fca5a5; }
+    .prompt-preview { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; line-height: 1.45; min-height: 150px; max-height: 230px; resize: vertical; color: #cbd5e1; }
+
+    .viewport-wrap { grid-area: view; position: relative; width: 100%; height: 100%; background: #06090f; overflow: hidden; min-height: 300px; }
+    #map, #three { position: absolute; inset: 0; width: 100%; height: 100%; }
+    #three { background: #0b1220; touch-action: none; }
+    #three canvas { display: block; width: 100%; height: 100%; }
+    .hud-top { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none; z-index: 10; gap: 8px; flex-wrap: wrap; }
+    .hud-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; pointer-events: auto; background: rgba(9, 12, 18, .84); backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(42, 54, 82, .9); padding: 6px; border-radius: 10px; }
+    .hud-group label { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+    .hud-group select { width: auto; padding: 5px 8px; }
+    .hud-group input[type=range] { width: 90px; }
+    .hud-bottom { position: absolute; bottom: 10px; left: 10px; right: 52px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; z-index: 10; gap: 8px; flex-wrap: wrap; }
+    .status-pill { pointer-events: auto; background: rgba(9, 12, 18, .88); backdrop-filter: blur(8px); border: 1px solid var(--border); padding: 6px 11px;
+      border-radius: 99px; font-size: 11px; color: #cbd5e1; display: flex; align-items: center; gap: 8px; max-width: 100%; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 8px var(--success); flex: none; }
+    .dot.busy { background: var(--warning); box-shadow: 0 0 8px var(--warning); }
+    .boot { position: absolute; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(6, 9, 15, .94); overflow-y: auto; }
+    .boot-card { max-width: 470px; width: 100%; background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; line-height: 1.5; }
+    .boot-card h3 { font-size: 15px; }
+    .boot-card p { color: #cbd5e1; font-size: 12.5px; }
+    .boot-card p.advice { color: #fde68a; background: rgba(245, 158, 11, .08); border: 1px solid rgba(245, 158, 11, .3); border-radius: 8px; padding: 8px 10px; }
+    .boot-checks { list-style: none; display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; }
+    .boot-checks li { display: flex; gap: 8px; align-items: flex-start; }
+    .boot-checks .ok { color: #6ee7b7; } .boot-checks .ko { color: #fca5a5; } .boot-checks .wait { color: #fcd34d; }
+    body.playing .boot { display: none; }
+    .empty-3d { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 30px; color: var(--muted); pointer-events: none; z-index: 5; line-height: 1.6; }
+    .empty-3d b { color: var(--text); }
+
+    .marker-list { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
+    .marker-item { background: var(--bg-0); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; }
+    .marker-item:hover { border-color: var(--accent); }
+    .marker-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .marker-name { font-weight: 600; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .marker-meta { font-size: 10px; color: var(--muted); }
+    .custom-marker { width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff; display: grid; place-items: center; font-size: 13px; box-shadow: 0 3px 12px rgba(0, 0, 0, .55); cursor: pointer; }
+
+    .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px); background: #111827; border: 1px solid var(--accent); color: #fff;
+      padding: 10px 16px; border-radius: 10px; font-size: 12px; font-weight: 600; opacity: 0; pointer-events: none; transition: all .25s ease; z-index: 999;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .5); max-width: 90vw; text-align: center; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ---- HUD de jeu ---- */
+    #gameHud { position: absolute; inset: 0; pointer-events: none; z-index: 30; }
+    .g-panel { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 12px; background: rgba(10, 14, 24, .82); border: 1px solid #334155; border-radius: 12px;
+      padding: 10px 14px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); min-width: 170px; }
+    .g-kmh { font-size: 30px; font-weight: 800; color: #38bdf8; line-height: 1; }
+    .g-kmh small { font-size: 12px; color: #94a3b8; margin-left: 4px; }
+    .g-street { font-size: 12px; color: #f8fafc; margin-top: 6px; font-weight: 600; max-width: 230px; }
+    .g-mode { font-size: 11px; color: #94a3b8; margin-top: 3px; }
+    #minimap { position: absolute; top: max(12px, env(safe-area-inset-top)); right: 12px; width: 170px; height: 170px; border-radius: 50%; border: 2px solid #334155;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, .5); }
+    .g-help { position: absolute; bottom: 12px; left: 12px; background: rgba(10, 14, 24, .82); color: #cbd5e1; border: 1px solid #334155; padding: 8px 12px;
+      border-radius: 10px; font-size: 11px; max-width: 60%; }
+    .g-joy { position: absolute; left: 22px; bottom: max(26px, env(safe-area-inset-bottom)); width: 140px; height: 140px; border-radius: 50%;
+      background: rgba(15, 23, 42, .45); border: 2px solid rgba(148, 163, 184, .45); pointer-events: auto; touch-action: none; }
+    .g-knob { position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; border-radius: 50%; background: rgba(56, 189, 248, .55);
+      border: 2px solid rgba(255, 255, 255, .7); transform: translate(-50%, -50%); }
+    .g-btns { position: absolute; right: 14px; bottom: max(22px, env(safe-area-inset-bottom)); display: grid; grid-template-columns: 1fr 1fr; gap: 8px; pointer-events: auto; }
+    .g-btns button { width: 74px; height: 54px; font-size: 13px; touch-action: none; background: rgba(15, 23, 42, .7); }
+    .g-btns button.hold { background: rgba(239, 68, 68, .35); }
+    .g-top-right { position: absolute; top: max(192px, calc(env(safe-area-inset-top) + 180px)); right: 12px; pointer-events: auto; display: flex; gap: 6px; }
+    .g-mission { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); background: rgba(245, 158, 11, .9); color: #111; font-weight: 800;
+      padding: 12px 20px; border-radius: 12px; font-size: 16px; opacity: 0; transition: opacity .3s; }
+    .g-mission.show { opacity: 1; }
+    body.playing { overflow: hidden; }
+    body.playing .toast { bottom: auto; top: 28%; }
+    body.playing .viewport-wrap { position: fixed; inset: 0; z-index: 60; height: 100%; }
+    body.playing .hud-top, body.playing .hud-bottom { display: none; }
+
+    @media (max-width: 1180px) { .app { grid-template-columns: 300px 1fr 310px; } }
+    @media (max-width: 900px) {
+      body { overflow: auto; }
+      .app { grid-template-columns: 1fr; grid-template-rows: auto 58vh auto auto; grid-template-areas: "top" "view" "left" "right"; height: auto; min-height: 100vh; }
+      .panel { overflow: visible; border: none !important; }
+      .search-bar { order: 3; flex-basis: 100%; max-width: none; }
+      .brand small { display: none; }
+      .g-help { display: none; }
+      #minimap { width: 130px; height: 130px; }
+      .g-top-right { top: max(152px, calc(env(safe-area-inset-top) + 140px)); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-badge">P3D</div>
+        <span>Perpignan 3D Studio</span>
+        <small>Ville réelle → jeu 3D</small>
+      </div>
+      <div class="search-bar">
+        <input id="searchInput" type="text" placeholder="Adresse, lieu ou coordonnées à Perpignan (ex. Castillet, 42.6986, 2.8956)…" />
+        <button class="primary" id="btnSearch">Localiser</button>
+      </div>
+      <div class="tabs">
+        <button id="tabMap" class="active">🗺️ Carte</button>
+        <button id="tab3d">🧊 Modèle 3D</button>
+        <button id="tabPlay" class="success">▶ Jouer</button>
+      </div>
+    </header>
+
+    <!-- ===== PANNEAU GAUCHE ===== -->
+    <aside class="panel left">
+      <div class="card">
+        <div class="card-title"><span>1. Emprise & tuiles</span><span class="badge" id="badgeSel">0 tuile</span></div>
+        <div class="field">
+          <label>Emprise affichée autour du centre-ville <span class="val" id="valEmprise">8 × 8 km</span></label>
+          <input id="empriseSlider" type="range" min="2" max="12" step="1" value="8" />
+        </div>
+        <div class="field">
+          <label>Taille d'une tuile (unité de streaming du jeu)</label>
+          <select id="tileSizeSelect">
+            <option value="250">250 m — très détaillé, petits fichiers</option>
+            <option value="500" selected>500 m — recommandé</option>
+            <option value="1000">1 000 m — gros fichiers</option>
+          </select>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-box"><div class="k">Tuiles dans l'emprise</div><div class="v" id="statTiles">256</div></div>
+          <div class="stat-box"><div class="k">Sélection</div><div class="v" id="statSel">0 km²</div></div>
+        </div>
+        <div class="field">
+          <label>Quartiers de Perpignan</label>
+          <div class="grid-2" id="quartiers"></div>
+        </div>
+        <div class="grid-3">
+          <button id="btnSelCenter">Centre 1 km</button>
+          <button id="btnSelAll">Tout</button>
+          <button class="danger" id="btnSelNone">Vider</button>
+        </div>
+        <div class="hint">Touchez les tuiles sur la carte pour les ajouter ou les retirer. Les tuiles gardent le même identifiant d'une session à l'autre : vous pouvez agrandir la ville plus tard, tout reste aligné.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span>2. Réalisme & sources</span></div>
+        <div class="field">
+          <label>Bâtiments</label>
+          <select id="optBld">
+            <option value="ign" selected>IGN BD TOPO — hauteurs et toits mesurés (recommandé)</option>
+            <option value="osm">OpenStreetMap — hauteurs estimées</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Texture du sol et des toits</label>
+          <select id="optOrtho">
+            <option value="ign" selected>Orthophoto IGN 20 cm (Licence Ouverte)</option>
+            <option value="esri">Esri World Imagery (aperçu, non redistribuable)</option>
+            <option value="none">Aucune (textures procédurales)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Résolution de la texture par tuile</label>
+          <select id="optTex">
+            <option value="1024" selected>1 024 px — léger (~0,5 m/pixel)</option>
+            <option value="2048">2 048 px — haute définition (~0,25 m/pixel)</option>
+          </select>
+        </div>
+        <div class="checks">
+          <label class="check-item"><input type="checkbox" id="chkRelief" checked /> Relief réel</label>
+          <label class="check-item"><input type="checkbox" id="chkPitched" checked /> Toits en pente</label>
+          <label class="check-item"><input type="checkbox" id="chkOrthoRoofs" checked /> Toits photo</label>
+          <label class="check-item"><input type="checkbox" id="chkRoads" checked /> Routes 3D</label>
+          <label class="check-item"><input type="checkbox" id="chkRails" checked /> Voies ferrées</label>
+          <label class="check-item"><input type="checkbox" id="chkWater" checked /> Eau</label>
+          <label class="check-item"><input type="checkbox" id="chkTrees" checked /> Arbres</label>
+          <label class="check-item"><input type="checkbox" id="chkPlazas" checked /> Places piétonnes</label>
+        </div>
+        <div class="hint">Données ouvertes utilisables dans un jeu : IGN (Licence Ouverte 2.0, mention « IGN ») et OpenStreetMap (ODbL, mention « © contributeurs OpenStreetMap »). L'imagerie Esri ne sert qu'à l'aperçu.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span>3. Génération 3D</span></div>
+        <button class="terra big" id="btnGenerate">Générer la sélection en 3D</button>
+        <label class="check-item wide"><input type="checkbox" id="chkBatch" /> Mode lot : exporter directement en ZIP sans garder l'aperçu (grandes zones)</label>
+        <div class="progress"><div id="progressBar"></div></div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <div id="progressText" style="flex:1;font-size:11px;color:var(--muted);">Prêt.</div>
+          <button class="danger" id="btnCancel" hidden>Annuler</button>
+        </div>
+        <div class="log" id="log"></div>
+      </div>
+    </aside>
+
+    <!-- ===== VUE CENTRALE ===== -->
+    <main class="viewport-wrap" id="viewport">
+      <div id="map"></div>
+      <div id="three" hidden></div>
+      <div class="boot" id="bootPanel">
+        <div class="boot-card">
+          <h3 id="bootTitle">La page ne s'exécute pas ici</h3>
+          <p id="bootNoJs">Si ce message reste affiché, cet écran bloque les scripts ou internet (c'est le cas de l'aperçu de l'app Claude et de l'app Fichiers sur iPhone). Ouvrez le fichier sur un ordinateur, par double-clic, dans Chrome, Edge ou Safari, avec une connexion internet.</p>
+          <ul class="boot-checks" id="bootChecks"></ul>
+          <p class="advice" id="bootAdvice" hidden></p>
+          <div class="row"><button id="bootRetry">Revérifier</button><button class="primary" id="bootClose">Fermer</button></div>
+        </div>
+      </div>
+      <div class="empty-3d" id="empty3d" hidden><div><b>Aucune tuile générée.</b><br/>Sélectionnez des tuiles sur la carte puis lancez « Générer la sélection en 3D ».</div></div>
+
+      <div class="hud-top" id="hudMap">
+        <div class="hud-group">
+          <button id="styleOrtho" class="active">Ortho IGN</button>
+          <button id="stylePlan">Plan IGN</button>
+          <button id="styleVector">3D OSM</button>
+        </div>
+        <div class="hud-group">
+          <button id="btnToggleGrid" class="active">Grille</button>
+          <button id="btnPlaceMarker2">📍 Marqueur</button>
+          <button id="btnDiag">🩺 Diagnostic</button>
+        </div>
+      </div>
+      <div class="hud-top" id="hud3d" hidden>
+        <div class="hud-group">
+          <button id="btnFrame">Cadrer</button>
+          <label>Lumière <select id="lightSelect"><option value="midi">Midi</option><option value="aprem" selected>Après-midi</option><option value="soir">Coucher de soleil</option></select></label>
+        </div>
+        <div class="hud-group">
+          <label>Expo <input type="range" id="exposureSlider" min="0.25" max="1.4" step="0.05" value="0.65" /></label>
+          <label><input type="checkbox" id="chkShadows" checked /> Ombres</label>
+        </div>
+      </div>
+
+      <div id="gameHud" hidden>
+        <div class="g-panel">
+          <div class="g-kmh"><span id="gSpeed">0</span><small>km/h</small></div>
+          <div class="g-street" id="gStreet">—</div>
+          <div class="g-mode" id="gMode">🚗 Voiture</div>
+        </div>
+        <canvas id="minimap" width="340" height="340"></canvas>
+        <div class="g-top-right"><button id="gQuit" class="danger">✕ Quitter</button></div>
+        <div class="g-help">ZQSD / WASD ou flèches : conduire · Espace : frein à main · Maj : turbo · F : à pied / voiture · C : caméra · Échap : quitter</div>
+        <div class="g-joy" id="gJoy" hidden><div class="g-knob" id="gKnob"></div></div>
+        <div class="g-btns" id="gBtns" hidden>
+          <button id="gBrake">Frein</button>
+          <button id="gTurbo">Turbo</button>
+          <button id="gSwitch">🚶 Pied</button>
+          <button id="gCam">📷 Vue</button>
+        </div>
+        <div class="g-mission" id="gMission"></div>
+      </div>
+
+      <div class="hud-bottom">
+        <div class="status-pill"><span class="dot" id="statusDot"></span><span id="statusText">Perpignan — prêt</span></div>
+        <div class="status-pill" id="coordsReadout">42.69860° N, 2.89560° E</div>
+      </div>
+    </main>
+
+    <!-- ===== PANNEAU DROIT ===== -->
+    <aside class="panel right">
+      <div class="card">
+        <div class="card-title"><span>4. Marqueurs de gameplay</span><span class="badge" id="markerCountBadge">0</span></div>
+        <div class="grid-2">
+          <select id="markerType">
+            <option value="spawn">🚩 Spawn joueur</option>
+            <option value="vehicle">🚗 Garage / véhicule</option>
+            <option value="mission">⭐ Mission / quête</option>
+            <option value="checkpoint">🏁 Checkpoint</option>
+            <option value="landmark">🏛️ Monument / QG</option>
+            <option value="npc">👤 PNJ / boss</option>
+            <option value="danger">⚠️ Zone danger</option>
+          </select>
+          <input id="markerLabel" type="text" placeholder="Nom du point…" />
+        </div>
+        <div class="row">
+          <button id="btnPlaceMarker">Placer sur la carte (OFF)</button>
+          <button class="danger" id="btnClearMarkers" style="flex:0 0 auto;">Vider</button>
+        </div>
+        <div class="marker-list" id="markerList"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span>5. Export vers le moteur de jeu</span></div>
+        <div class="field">
+          <label>Moteur cible</label>
+          <select id="engineSelect">
+            <option value="threejs">Three.js (web) — GLB + Rapier</option>
+            <option value="unity">Unity 6 — glTFast</option>
+            <option value="unreal">Unreal Engine 5 — import glTF</option>
+            <option value="godot">Godot 4 — import glTF natif</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Genre du jeu</label>
+          <select id="genreSelect">
+            <option value="openworld_drive">Open-world conduite & exploration (style GTA / Driver)</option>
+            <option value="racing">Course urbaine & drift dans Perpignan</option>
+            <option value="survival">Survie urbaine / post-apocalyptique</option>
+            <option value="delivery">Simulation livraison / interventions techniques</option>
+            <option value="tactical">Action / exploration à pied & véhicules</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Ambiance</label>
+          <select id="weatherSelect">
+            <option value="sunny_med">Soleil méditerranéen + cycle jour/nuit</option>
+            <option value="golden_hour">Coucher de soleil cinématique</option>
+            <option value="tramontane">Tramontane, ciel dégagé, poussière</option>
+            <option value="rain_night">Nuit pluvieuse + reflets néon</option>
+          </select>
+        </div>
+        <div class="checks">
+          <label class="check-item"><input type="checkbox" id="chkDrive" checked /> Physique conduite</label>
+          <label class="check-item"><input type="checkbox" id="chkWalk" checked /> Mode piéton</label>
+          <label class="check-item"><input type="checkbox" id="chkTraffic" checked /> Trafic IA</label>
+          <label class="check-item"><input type="checkbox" id="chkMinimap" checked /> Minimap GPS</label>
+          <label class="check-item"><input type="checkbox" id="chkMissions" checked /> Missions</label>
+          <label class="check-item"><input type="checkbox" id="chkLOD" checked /> Streaming tuiles</label>
+        </div>
+        <div class="grid-2">
+          <button class="purple" id="btnExportZone">GLB de la zone</button>
+          <button class="terra" id="btnExportZip">ZIP par tuiles</button>
+        </div>
+        <div class="grid-2">
+          <button id="btnDownloadJson">Manifeste .JSON</button>
+          <button id="btnDownloadRoads">Routes .JSON</button>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-box"><div class="k">Bâtiments</div><div class="v" id="sBld">0</div></div>
+          <div class="stat-box"><div class="k">Triangles</div><div class="v" id="sTri">0</div></div>
+          <div class="stat-box"><div class="k">Voies</div><div class="v" id="sRoad">0 km</div></div>
+          <div class="stat-box"><div class="k">Arbres</div><div class="v" id="sTree">0</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span>6. Prompt pour Claude Code</span></div>
+        <textarea id="promptPreview" class="prompt-preview" readonly></textarea>
+        <div class="grid-2">
+          <button class="primary" id="btnCopyPrompt">Copier le prompt</button>
+          <button class="success" id="btnDownloadPrompt">Prompt (.MD)</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+// =====================================================================
+// CORE — fonctions pures (aucune dépendance DOM / Three.js)
+// Repère monde : X = Est, Y = altitude (m), Z = Sud — 1 unité = 1 mètre
+// Points 2D au sol : [x, z]
+// =====================================================================
+const ORIGIN = Object.freeze({ lat: 42.6986, lng: 2.8956 });
+const DEG = Math.PI / 180;
+const K_LAT = 111132.954 - 559.822 * Math.cos(2 * ORIGIN.lat * DEG) + 1.175 * Math.cos(4 * ORIGIN.lat * DEG);
+const K_LNG = 111412.84 * Math.cos(ORIGIN.lat * DEG) - 93.5 * Math.cos(3 * ORIGIN.lat * DEG) + 0.118 * Math.cos(5 * ORIGIN.lat * DEG);
+const GRID_G = 15.625; // pas de la grille de relief (m) — divise 250 / 500 / 1000 m
+
+function geoToLocal(lat, lng) { return [(lng - ORIGIN.lng) * K_LNG, -(lat - ORIGIN.lat) * K_LAT]; }
+function localToGeo(x, z) { return { lat: ORIGIN.lat - z / K_LAT, lng: ORIGIN.lng + x / K_LNG }; }
+
+// ----- Tuiles (grille globale ancrée sur l'origine) -----
+function tileId(i, j) { return `X${i}_Z${j}`; }
+function parseTileId(id, S) {
+  const m = /^X(-?\d+)_Z(-?\d+)$/.exec(id);
+  if (!m) return null;
+  const i = parseInt(m[1], 10), j = parseInt(m[2], 10);
+  return { id, i, j, S };
+}
+function tileRect(i, j, S) { return { x0: i * S, z0: j * S, x1: (i + 1) * S, z1: (j + 1) * S }; }
+function tileBoundsGeo(i, j, S) {
+  const r = tileRect(i, j, S);
+  const nw = localToGeo(r.x0, r.z0), se = localToGeo(r.x1, r.z1);
+  return { north: nw.lat, south: se.lat, west: nw.lng, east: se.lng };
+}
+function expandGeo(g, m) {
+  const dLat = m / K_LAT, dLng = m / K_LNG;
+  return { north: g.north + dLat, south: g.south - dLat, west: g.west - dLng, east: g.east + dLng };
+}
+
+// ----- Web Mercator -----
+function lngLatToPixel(lng, lat, z) {
+  const n = 256 * Math.pow(2, z);
+  const s = Math.sin(lat * DEG);
+  return { x: (lng + 180) / 360 * n, y: (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n };
+}
+function lngLatToMerc(lng, lat) {
+  const R = 6378137;
+  return [R * lng * DEG, R * Math.log(Math.tan(Math.PI / 4 + lat * DEG / 2))];
+}
+
+// ----- Hasard déterministe -----
+function hashStr(s) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+function num(v) {
+  if (v === null || v === undefined || v === '') return NaN;
+  return parseFloat(String(v).replace(',', '.'));
+}
+
+// ----- Polygones -----
+function ringAreaXZ(r) {
+  let a = 0;
+  for (let i = 0, n = r.length; i < n; i++) { const p = r[i], q = r[(i + 1) % n]; a += p[0] * q[1] - q[0] * p[1]; }
+  return a / 2;
+}
+// Anneau extérieur : aire XZ < 0 (sens trigo vu de dessus, nord en haut). Trou : aire > 0.
+function orientRing(r, outer) {
+  const a = ringAreaXZ(r);
+  if ((outer && a > 0) || (!outer && a < 0)) r.reverse();
+  return r;
+}
+function cleanRing(r, minArea = 2, colTol = 0.12) {
+  if (!r || r.length < 3) return null;
+  let pts = r.slice();
+  const close = (a, b, e) => Math.abs(a[0] - b[0]) < e && Math.abs(a[1] - b[1]) < e;
+  if (close(pts[0], pts[pts.length - 1], 1e-6)) pts.pop();
+  const out = [];
+  for (const p of pts) { const l = out[out.length - 1]; if (!l || !close(l, p, 0.04)) out.push(p); }
+  while (out.length > 2 && close(out[0], out[out.length - 1], 0.04)) out.pop();
+  if (colTol > 0) {
+    let changed = true;
+    while (changed && out.length > 3) {
+      changed = false;
+      for (let i = 0; i < out.length && out.length > 3; i++) {
+        const a = out[(i - 1 + out.length) % out.length], p = out[i], b = out[(i + 1) % out.length];
+        const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz);
+        const d = L < 1e-9 ? Math.hypot(p[0] - a[0], p[1] - a[1]) : Math.abs((p[0] - a[0]) * dz - (p[1] - a[1]) * dx) / L;
+        if (d < colTol) { out.splice(i, 1); changed = true; i--; }
+      }
+    }
+  }
+  if (out.length < 3 || Math.abs(ringAreaXZ(out)) < minArea) return null;
+  return out;
+}
+function pointInRing(x, z, r) {
+  let inside = false;
+  for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+    const xi = r[i][0], zi = r[i][1], xj = r[j][0], zj = r[j][1];
+    if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function pointInPoly(x, z, rings) {
+  if (!pointInRing(x, z, rings[0])) return false;
+  for (let k = 1; k < rings.length; k++) if (pointInRing(x, z, rings[k])) return false;
+  return true;
+}
+function ringBBox(r) {
+  let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+  for (const p of r) { if (p[0] < minX) minX = p[0]; if (p[0] > maxX) maxX = p[0]; if (p[1] < minZ) minZ = p[1]; if (p[1] > maxZ) maxZ = p[1]; }
+  return { minX, minZ, maxX, maxZ };
+}
+function ringCentroid(r) {
+  let a = 0, cx = 0, cz = 0;
+  for (let i = 0, n = r.length; i < n; i++) {
+    const p = r[i], q = r[(i + 1) % n]; const f = p[0] * q[1] - q[0] * p[1];
+    a += f; cx += (p[0] + q[0]) * f; cz += (p[1] + q[1]) * f;
+  }
+  if (Math.abs(a) < 1e-9) {
+    let sx = 0, sz = 0; for (const p of r) { sx += p[0]; sz += p[1]; }
+    return [sx / r.length, sz / r.length];
+  }
+  return [cx / (3 * a), cz / (3 * a)];
+}
+function convexHull(pts) {
+  const p = pts.map(q => [q[0], q[1]]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (p.length < 3) return p;
+  const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], up = [];
+  for (const q of p) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+  up.pop(); lo.pop();
+  return lo.concat(up);
+}
+// Rectangle orienté d'aire minimale — axe u = grand côté
+function minAreaRect(pts) {
+  const h = convexHull(pts);
+  if (h.length < 3) return null;
+  let best = null;
+  for (let i = 0; i < h.length; i++) {
+    const a = h[i], b = h[(i + 1) % h.length];
+    let ux = b[0] - a[0], uz = b[1] - a[1]; const L = Math.hypot(ux, uz);
+    if (L < 1e-6) continue;
+    ux /= L; uz /= L; const vx = -uz, vz = ux;
+    let mnU = Infinity, mxU = -Infinity, mnV = Infinity, mxV = -Infinity;
+    for (const p of h) {
+      const u = p[0] * ux + p[1] * uz, v = p[0] * vx + p[1] * vz;
+      if (u < mnU) mnU = u; if (u > mxU) mxU = u; if (v < mnV) mnV = v; if (v > mxV) mxV = v;
+    }
+    const area = (mxU - mnU) * (mxV - mnV);
+    if (!best || area < best.area) best = { area, ux, uz, vx, vz, mnU, mxU, mnV, mxV };
+  }
+  if (!best) return null;
+  let { ux, uz, vx, vz } = best;
+  let halfL = (best.mxU - best.mnU) / 2, halfW = (best.mxV - best.mnV) / 2;
+  const cu = (best.mnU + best.mxU) / 2, cv = (best.mnV + best.mxV) / 2;
+  const cx = cu * ux + cv * vx, cz = cu * uz + cv * vz;
+  if (halfW > halfL) { [ux, uz, vx, vz] = [vx, vz, ux, uz]; [halfL, halfW] = [halfW, halfL]; }
+  return { cx, cz, ux, uz, vx, vz, halfL, halfW, area: best.area };
+}
+function rectRing(rc) {
+  const P = (a, b) => [rc.cx + rc.ux * a + rc.vx * b, rc.cz + rc.uz * a + rc.vz * b];
+  return orientRing([P(-rc.halfL, -rc.halfW), P(rc.halfL, -rc.halfW), P(rc.halfL, rc.halfW), P(-rc.halfL, rc.halfW)], true);
+}
+
+// ----- Découpage (clipping) -----
+function lerpPt(a, b, t) { const o = new Array(a.length); for (let k = 0; k < a.length; k++) o[k] = a[k] + (b[k] - a[k]) * t; return o; }
+function clipSegT(ax, az, bx, bz, x0, z0, x1, z1) {
+  let t0 = 0, t1 = 1; const dx = bx - ax, dz = bz - az;
+  const p = [-dx, dx, -dz, dz], q = [ax - x0, x1 - ax, az - z0, z1 - az];
+  for (let i = 0; i < 4; i++) {
+    if (p[i] === 0) { if (q[i] < 0) return null; }
+    else {
+      const r = q[i] / p[i];
+      if (p[i] < 0) { if (r > t1) return null; if (r > t0) t0 = r; }
+      else { if (r < t0) return null; if (r < t1) t1 = r; }
+    }
+  }
+  return [t0, t1];
+}
+// Polyligne (points [x,z,...attributs]) découpée par un rectangle → morceaux
+function clipPolylineRect(pts, x0, z0, x1, z1) {
+  const out = []; let cur = null;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const t = clipSegT(a[0], a[1], b[0], b[1], x0, z0, x1, z1);
+    if (!t || t[1] - t[0] < 1e-9) { if (cur) { out.push(cur); cur = null; } continue; }
+    const p = t[0] > 0 ? lerpPt(a, b, t[0]) : a.slice();
+    const q = t[1] < 1 ? lerpPt(a, b, t[1]) : b.slice();
+    if (!cur || t[0] > 0) { if (cur) out.push(cur); cur = [p]; }
+    cur.push(q);
+    if (t[1] < 1) { out.push(cur); cur = null; }
+  }
+  if (cur) out.push(cur);
+  return out.filter(l => l.length >= 2);
+}
+// Sutherland–Hodgman (anneau) par rectangle
+function clipRingRect(ring, x0, z0, x1, z1) {
+  let poly = ring;
+  const edges = [
+    [p => p[0] >= x0, (a, b) => lerpPt(a, b, (x0 - a[0]) / (b[0] - a[0]))],
+    [p => p[0] <= x1, (a, b) => lerpPt(a, b, (x1 - a[0]) / (b[0] - a[0]))],
+    [p => p[1] >= z0, (a, b) => lerpPt(a, b, (z0 - a[1]) / (b[1] - a[1]))],
+    [p => p[1] <= z1, (a, b) => lerpPt(a, b, (z1 - a[1]) / (b[1] - a[1]))],
+  ];
+  for (const [inside, inter] of edges) {
+    if (!poly.length) return null;
+    const out = [];
+    for (let i = 0; i < poly.length; i++) {
+      const cur = poly[i], prev = poly[(i - 1 + poly.length) % poly.length];
+      const ci = inside(cur), pi = inside(prev);
+      if (ci) { if (!pi) out.push(inter(prev, cur)); out.push(cur); }
+      else if (pi) out.push(inter(prev, cur));
+    }
+    poly = out;
+  }
+  return poly.length >= 3 ? poly : null;
+}
+function dedupePts(pts, eps = 0.02) {
+  const out = [];
+  for (const p of pts) { const l = out[out.length - 1]; if (!l || Math.hypot(p[0] - l[0], p[1] - l[1]) > eps) out.push(p); }
+  return out;
+}
+function densify(pts, maxLen) {
+  if (pts.length < 2) return pts.slice();
+  const out = [pts[0]];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const n = Math.max(1, Math.ceil(L / maxLen));
+    for (let k = 1; k <= n; k++) out.push(k === n ? b : lerpPt(a, b, k / n));
+  }
+  return out;
+}
+function pathLen(pts) { let L = 0; for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); return L; }
+function distPointSeg(px, pz, ax, az, bx, bz) {
+  const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
+  let t = L2 > 0 ? ((px - ax) * dx + (pz - az) * dz) / L2 : 0; t = clamp(t, 0, 1);
+  return Math.hypot(px - (ax + dx * t), pz - (az + dz * t));
+}
+
+// ----- Assemblage d'anneaux (multipolygones OSM) -----
+function assembleRings(lines) {
+  const key = p => p[0].toFixed(3) + ',' + p[1].toFixed(3);
+  const pool = lines.filter(l => l && l.length >= 2).map(l => l.slice());
+  const rings = [];
+  while (pool.length) {
+    let ring = pool.shift(); let guard = 0;
+    while (key(ring[0]) !== key(ring[ring.length - 1]) && guard++ < 5000) {
+      const endK = key(ring[ring.length - 1]);
+      let found = -1, rev = false;
+      for (let i = 0; i < pool.length; i++) {
+        const l = pool[i];
+        if (key(l[0]) === endK) { found = i; break; }
+        if (key(l[l.length - 1]) === endK) { found = i; rev = true; break; }
+      }
+      if (found < 0) break;
+      let l = pool.splice(found, 1)[0]; if (rev) l = l.slice().reverse();
+      ring = ring.concat(l.slice(1));
+    }
+    if (ring.length >= 4 && key(ring[0]) === key(ring[ring.length - 1])) rings.push(ring.slice(0, -1));
+  }
+  return rings;
+}
+function buildPolygons(outerLines, innerLines, minArea = 2) {
+  const outers = assembleRings(outerLines).map(r => cleanRing(r, minArea)).filter(Boolean).map(r => orientRing(r, true));
+  const inners = assembleRings(innerLines).map(r => cleanRing(r, 0.5)).filter(Boolean).map(r => orientRing(r, false));
+  const polys = outers.map(o => [o]);
+  for (const h of inners) {
+    const p = polys.find(pl => pointInRing(h[0][0], h[0][1], pl[0]));
+    if (p) p.push(h);
+  }
+  return polys;
+}
+
+// ----- Grille spatiale -----
+class SpatialGrid {
+  constructor(cell) { this.c = cell; this.m = new Map(); }
+  key(i, j) { return (i + 100000) * 200003 + (j + 100000); }
+  insertBBox(bb, v) {
+    const c = this.c;
+    for (let j = Math.floor(bb.minZ / c); j <= Math.floor(bb.maxZ / c); j++)
+      for (let i = Math.floor(bb.minX / c); i <= Math.floor(bb.maxX / c); i++) {
+        const k = this.key(i, j); let a = this.m.get(k); if (!a) { a = []; this.m.set(k, a); } a.push(v);
+      }
+  }
+  query(x, z) { return this.m.get(this.key(Math.floor(x / this.c), Math.floor(z / this.c))) || []; }
+  queryRadius(x, z, r) {
+    const c = this.c, out = new Set();
+    for (let j = Math.floor((z - r) / c); j <= Math.floor((z + r) / c); j++)
+      for (let i = Math.floor((x - r) / c); i <= Math.floor((x + r) / c); i++) {
+        const a = this.m.get(this.key(i, j)); if (a) for (const v of a) out.add(v);
+      }
+    return out;
+  }
+}
+
+// ----- Relief : interpolation identique au maillage du sol -----
+// Cellule (i,j) : a=(i,j) b=(i+1,j) c=(i,j+1) d=(i+1,j+1) ; triangles (a,c,b) et (b,c,d)
+function makeGround(nodeH, g) {
+  return (x, z) => {
+    const fi = x / g, fj = z / g, i = Math.floor(fi), j = Math.floor(fj), fx = fi - i, fz = fj - j;
+    const a = nodeH(i, j), b = nodeH(i + 1, j), c = nodeH(i, j + 1);
+    if (fx + fz <= 1) return a + (b - a) * fx + (c - a) * fz;
+    const d = nodeH(i + 1, j + 1);
+    return d + (c - d) * (1 - fx) + (b - d) * (1 - fz);
+  };
+}
+
+// ----- Classification OSM -----
+const ROAD_DEF = {
+  motorway: { w: 11, cls: 'major' }, trunk: { w: 10, cls: 'major' }, primary: { w: 8.5, cls: 'major' },
+  secondary: { w: 7.5, cls: 'major' }, tertiary: { w: 7, cls: 'major' },
+  motorway_link: { w: 6, cls: 'major' }, trunk_link: { w: 6, cls: 'major' }, primary_link: { w: 6, cls: 'major' },
+  secondary_link: { w: 6, cls: 'major' }, tertiary_link: { w: 5.5, cls: 'major' },
+  residential: { w: 6, cls: 'minor' }, unclassified: { w: 5.5, cls: 'minor' }, living_street: { w: 5, cls: 'minor' },
+  service: { w: 4, cls: 'minor' }, road: { w: 5.5, cls: 'minor' }, track: { w: 3, cls: 'minor' }, busway: { w: 6, cls: 'minor' },
+  pedestrian: { w: 5, cls: 'foot' }, footway: { w: 2.2, cls: 'foot' }, path: { w: 1.8, cls: 'foot' },
+  cycleway: { w: 2.2, cls: 'foot' }, steps: { w: 2, cls: 'foot' }, bridleway: { w: 2, cls: 'foot' },
+};
+const WATERLINE_W = { river: 14, canal: 7, stream: 2.5, ditch: 1.5, drain: 2 };
+const GREEN_KINDS = new Set(['park', 'garden', 'grass', 'forest', 'recreation_ground', 'village_green', 'meadow', 'wood', 'scrub']);
+const DEFAULT_H = { residentiel: 8, commerce: 10, industriel: 8, monument: 15, annexe: 3 };
+
+function categorizeIGN(usage, nature, leger, h) {
+  const u = (usage || '').toLowerCase(), n = (nature || '').toLowerCase();
+  if (/(église|eglise|chapelle|château|chateau|tour, donjon|donjon|monument|fort|arc de triomphe|arène|arene|temple|mosquée|synagogue|calvaire)/.test(n) || /religieux/.test(u)) return 'monument';
+  if (/industriel|agricole/.test(u) || /(industriel|silo|serre|hangar|agricole)/.test(n)) return 'industriel';
+  if (leger || /annexe/.test(u) || (h > 0 && h < 3.3)) return 'annexe';
+  if (/commercial|services|sportif/.test(u)) return 'commerce';
+  return 'residentiel';
+}
+function categorizeOSM(t) {
+  const b = String(t.building || '').toLowerCase();
+  if (/church|cathedral|chapel|castle|tower|temple|mosque|synagogue|monastery|fort/.test(b) || t.historic) return 'monument';
+  if (/industrial|warehouse|factory|hangar|farm_auxiliary|greenhouse|barn|silo|storage_tank|manufacture/.test(b)) return 'industriel';
+  if (/^(garage|garages|shed|carport|hut|roof|kiosk|cabin|bunker|toilets|service)$/.test(b)) return 'annexe';
+  if (/commercial|retail|office|supermarket|hotel|school|university|hospital|public|civic|government|train_station|sports_hall|stadium|college|kindergarten/.test(b)) return 'commerce';
+  return 'residentiel';
+}
+
+// Bâtiments IGN BD TOPO (GeoJSON du WFS) → bâtiments normalisés
+function parseIGN(features, lat0, lng0) {
+  const out = [];
+  let swap = null;
+  for (const f of features || []) {
+    const g = f && f.geometry; if (!g) continue;
+    const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+    if (!polys.length) continue;
+    if (swap === null) {
+      const c = polys[0] && polys[0][0] && polys[0][0][0];
+      if (c) { const d1 = (c[0] - lng0) ** 2 + (c[1] - lat0) ** 2, d2 = (c[0] - lat0) ** 2 + (c[1] - lng0) ** 2; swap = d2 < d1; }
+    }
+    const p = f.properties || {};
+    const get = k => (p[k] !== undefined ? p[k] : p[k.toUpperCase()]);
+    const hauteur = num(get('hauteur')), etages = num(get('nombre_d_etages'));
+    const tMin = num(get('altitude_minimale_toit')), tMax = num(get('altitude_maximale_toit'));
+    const usage = String(get('usage_1') || ''), nature = String(get('nature') || '');
+    const lg = get('construction_legere'); const leger = lg === true || /^(oui|true|vrai|1)$/i.test(String(lg || ''));
+    let h = hauteur > 1 && hauteur < 350 ? hauteur : (etages > 0 && etages < 90 ? etages * 3 + 0.6 : NaN);
+    const cat = categorizeIGN(usage, nature, leger, h);
+    if (!(h > 0)) h = DEFAULT_H[cat];
+    const d = tMax - tMin; const rise = d > 0.4 && d < 15 ? d : 0;
+    const id = String(f.id || get('cleabs') || ('ign' + out.length));
+    polys.forEach((poly, k) => {
+      const rings = [];
+      poly.forEach((ring, ri) => {
+        const pts = ring.map(c => swap ? geoToLocal(c[0], c[1]) : geoToLocal(c[1], c[0]));
+        const r = cleanRing(pts, ri === 0 ? 4 : 1);
+        if (r) rings.push(orientRing(r, ri === 0));
+        else if (ri === 0) rings.push(null);
+      });
+      if (!rings.length || !rings[0]) return;
+      out.push({ id: polys.length > 1 ? id + '_' + k : id, rings, height: h, rise, category: cat, roofHint: cat === 'industriel' && !rise ? 'flat' : 'auto', nom: '' });
+    });
+  }
+  return out;
+}
+
+function osmBuilding(id, rings, t) {
+  const cat = categorizeOSM(t);
+  let h = num(t.height); if (!(h > 1.5 && h < 400)) h = num(t['building:height']);
+  let rise = num(t['roof:height']); if (!(rise > 0 && rise < 15)) rise = 0;
+  if (h > 1.5 && h < 400) { if (rise && rise < h) h -= rise; }
+  else {
+    const lv = num(t['building:levels']);
+    if (lv > 0 && lv < 100) { h = lv * 3 + 0.6; const rl = num(t['roof:levels']); if (!rise && rl > 0) rise = rl * 2.2; }
+    else h = DEFAULT_H[cat];
+  }
+  const shape = String(t['roof:shape'] || '');
+  const roofHint = shape === 'flat' ? 'flat' : /gabled|hipped|pyramidal|half-hipped|skillion|gambrel|mansard|side_hipped/.test(shape) ? 'pitched' : 'auto';
+  return { id, rings, height: h, rise, category: cat, roofHint, nom: t.name || '' };
+}
+
+function parseOSM(elements, withBuildings) {
+  const R = { roads: [], rails: [], waterAreas: [], waterLines: [], pedAreas: [], greens: [], trees: [], treeRows: [], pois: [], buildings: [] };
+  for (const el of elements || []) {
+    const t = el.tags || {};
+    if (el.type === 'node') {
+      if (typeof el.lat !== 'number') continue;
+      const [x, z] = geoToLocal(el.lat, el.lon);
+      if (t.natural === 'tree') R.trees.push({ x, z, kind: t.leaf_type === 'needleleaved' ? 'pin' : 'feuillu', h: num(t.height) || null });
+      else if (t.amenity || t.tourism) R.pois.push({ id: 'n' + el.id, type: t.amenity || t.tourism, nom: t.name || '', x: +x.toFixed(2), z: +z.toFixed(2), lat: el.lat, lng: el.lon });
+      continue;
+    }
+    if (el.type === 'way') {
+      if (!Array.isArray(el.geometry)) continue;
+      const pts = el.geometry.filter(Boolean).map(g => geoToLocal(g.lat, g.lon));
+      if (pts.length < 2) continue;
+      const closed = pts.length > 3 && Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]) < 0.01;
+      const tunnel = t.tunnel && t.tunnel !== 'no' && t.tunnel !== 'building_passage';
+      const bridge = !!(t.bridge && t.bridge !== 'no');
+      if (t.building) {
+        if (withBuildings && closed) { const r = cleanRing(pts, 4); if (r) R.buildings.push(osmBuilding('w' + el.id, [orientRing(r, true)], t)); }
+        continue;
+      }
+      if (t.highway) {
+        const hw = t.highway, def = ROAD_DEF[hw];
+        if (!def || tunnel || t.indoor === 'yes') continue;
+        if (t.area === 'yes') {
+          if (closed && (def.cls === 'foot' || hw === 'living_street' || hw === 'service')) {
+            const r = cleanRing(pts, 4); if (r) R.pedAreas.push({ id: 'w' + el.id, rings: [orientRing(r, true)] });
+          }
+          continue;
+        }
+        let w = num(t.width);
+        if (!(w >= 1.2 && w <= 40)) { const ln = num(t.lanes); w = ln > 0 && ln < 10 ? ln * 3.1 + (def.cls === 'major' ? 1.2 : 0.6) : def.w; }
+        if (hw === 'service' && /parking_aisle|driveway|drive-through/.test(t.service || '')) w = Math.min(w, 3.6);
+        let ms = parseInt(t.maxspeed, 10); if (!(ms > 0)) ms = def.cls === 'major' ? 50 : def.cls === 'minor' ? 30 : 6;
+        const ow = t.oneway === 'yes' || t.oneway === '1' || t.junction === 'roundabout' ? 1 : t.oneway === '-1' ? -1 : 0;
+        R.roads.push({ id: 'w' + el.id, hw, cls: def.cls, name: t.name || t.ref || '', width: w, oneway: ow, maxspeed: ms, bridge, pts });
+        continue;
+      }
+      if (t.railway) {
+        if (/^(rail|light_rail|tram|narrow_gauge|subway|preserved)$/.test(t.railway) && !tunnel)
+          R.rails.push({ id: 'w' + el.id, hw: t.railway, cls: 'rail', name: t.name || '', width: 3.2, bridge, pts });
+        continue;
+      }
+      const isWater = t.natural === 'water' || t.waterway === 'riverbank' || t.landuse === 'reservoir' || t.landuse === 'basin';
+      if (isWater) { if (closed) { const r = cleanRing(pts, 4); if (r) R.waterAreas.push({ id: 'w' + el.id, rings: [orientRing(r, true)] }); } continue; }
+      if (t.waterway && WATERLINE_W[t.waterway] && !tunnel && t.tunnel !== 'culvert') {
+        let w = num(t.width); if (!(w > 0.5 && w < 80)) w = WATERLINE_W[t.waterway];
+        R.waterLines.push({ id: 'w' + el.id, width: w, pts }); continue;
+      }
+      if (t.natural === 'tree_row') { R.treeRows.push({ id: 'w' + el.id, pts }); continue; }
+      const kind = t.leisure || t.landuse || t.natural;
+      if (closed && GREEN_KINDS.has(kind)) { const r = cleanRing(pts, 20); if (r) R.greens.push({ id: 'w' + el.id, kind, rings: [orientRing(r, true)] }); }
+      continue;
+    }
+    if (el.type === 'relation') {
+      const outers = [], inners = [];
+      for (const m of el.members || []) {
+        if (m.type !== 'way' || !Array.isArray(m.geometry)) continue;
+        const pts = m.geometry.filter(Boolean).map(g => geoToLocal(g.lat, g.lon));
+        if (m.role === 'inner') inners.push(pts); else outers.push(pts);
+      }
+      const polys = buildPolygons(outers, inners);
+      for (const rings of polys) {
+        if (t.building) { if (withBuildings) R.buildings.push(osmBuilding('r' + el.id + '_' + R.buildings.length, rings, t)); }
+        else if (t.natural === 'water' || t.waterway === 'riverbank') R.waterAreas.push({ id: 'r' + el.id, rings });
+        else { const kind = t.leisure || t.landuse || t.natural; if (GREEN_KINDS.has(kind)) R.greens.push({ id: 'r' + el.id, kind, rings }); }
+      }
+    }
+  }
+  return R;
+}
+
+// Points répartis dans un polygone (grille perturbée), limités à un rectangle
+function scatterInPolygon(rings, x0, z0, x1, z1, density, rng, max) {
+  const bb = ringBBox(rings[0]);
+  const minX = Math.max(bb.minX, x0), maxX = Math.min(bb.maxX, x1), minZ = Math.max(bb.minZ, z0), maxZ = Math.min(bb.maxZ, z1);
+  if (minX >= maxX || minZ >= maxZ) return [];
+  const step = Math.sqrt(1 / density), out = [];
+  for (let z = minZ + step / 2; z < maxZ; z += step)
+    for (let x = minX + step / 2; x < maxX; x += step) {
+      const px = x + (rng() - 0.5) * step * 0.8, pz = z + (rng() - 0.5) * step * 0.8;
+      if (px < x0 || px >= x1 || pz < z0 || pz >= z1) continue;
+      if (pointInPoly(px, pz, rings)) { out.push([px, pz]); if (out.length >= max) return out; }
+    }
+  return out;
+}
+
+// ----- ZIP (stockage sans compression) -----
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+  return t;
+})();
+function crc32(u8) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+class ZipBuilder {
+  constructor() { this.parts = []; this.central = []; this.offset = 0; this.count = 0; }
+  add(name, data) {
+    const enc = new TextEncoder();
+    const u8 = typeof data === 'string' ? enc.encode(data) : data instanceof Uint8Array ? data : new Uint8Array(data);
+    const nb = enc.encode(name), crc = crc32(u8), size = u8.length;
+    const d = new Date();
+    const time = (d.getHours() << 11) | (d.getMinutes() << 5) | Math.floor(d.getSeconds() / 2);
+    const date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
+    lh.setUint16(10, time, true); lh.setUint16(12, date, true); lh.setUint32(14, crc, true);
+    lh.setUint32(18, size, true); lh.setUint32(22, size, true); lh.setUint16(26, nb.length, true); lh.setUint16(28, 0, true);
+    this.parts.push(new Uint8Array(lh.buffer), nb, u8);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true);
+    ch.setUint16(10, 0, true); ch.setUint16(12, time, true); ch.setUint16(14, date, true); ch.setUint32(16, crc, true);
+    ch.setUint32(20, size, true); ch.setUint32(24, size, true); ch.setUint16(28, nb.length, true);
+    ch.setUint16(30, 0, true); ch.setUint16(32, 0, true); ch.setUint16(34, 0, true); ch.setUint16(36, 0, true);
+    ch.setUint32(38, 0, true); ch.setUint32(42, this.offset, true);
+    this.central.push(new Uint8Array(ch.buffer), nb);
+    this.offset += 30 + nb.length + size; this.count++;
+  }
+  blob() {
+    const cd = this.central.reduce((s, p) => s + p.length, 0);
+    const e = new DataView(new ArrayBuffer(22));
+    e.setUint32(0, 0x06054b50, true); e.setUint16(8, this.count, true); e.setUint16(10, this.count, true);
+    e.setUint32(12, cd, true); e.setUint32(16, this.offset, true);
+    return new Blob([...this.parts, ...this.central, new Uint8Array(e.buffer)], { type: 'application/zip' });
+  }
+}
+
+// =====================================================================
+// BUILD — génération des maillages (tableaux bruts, sans Three.js)
+// =====================================================================
+const FLOOR_H = 3.0;   // hauteur d'étage (texture façade)
+const BAY_W = 3.4;     // largeur d'une travée (texture façade)
+const WALL_VARIANTS = { residentiel: 7, commerce: 2, industriel: 1, monument: 1, annexe: 1 };
+const ROAD_STYLE = {
+  major: { key: 'route_principale', off: 0.16, rep: 9 },
+  minor: { key: 'rue', off: 0.11, rep: 9 },
+  foot: { key: 'pietons', off: 0.07, rep: 2 },
+  rail: { key: 'voie_ferree', off: 0.13, rep: 1.2 },
+};
+
+class MeshBuf {
+  constructor() { this.pos = []; this.nrm = []; this.uv = []; this.idx = []; }
+  get count() { return this.pos.length / 3; }
+  v(x, y, z, nx, ny, nz, u, w) { this.pos.push(x, y, z); this.nrm.push(nx, ny, nz); this.uv.push(u, w); return this.pos.length / 3 - 1; }
+  t(a, b, c) { this.idx.push(a, b, c); }
+  // triangle orienté vers le haut (normale y ≥ 0)
+  tUp(a, b, c) {
+    const P = this.pos;
+    const ax = P[a * 3], az = P[a * 3 + 2], bx = P[b * 3], bz = P[b * 3 + 2], cx = P[c * 3], cz = P[c * 3 + 2];
+    const ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az);
+    if (ny >= 0) this.idx.push(a, b, c); else this.idx.push(a, c, b);
+  }
+  arrays() {
+    const vc = this.count;
+    return {
+      position: new Float32Array(this.pos), normal: new Float32Array(this.nrm), uv: new Float32Array(this.uv),
+      index: vc > 65535 ? new Uint32Array(this.idx) : new Uint16Array(this.idx),
+    };
+  }
+}
+class Bufs {
+  constructor() { this.map = new Map(); }
+  get(k) { let b = this.map.get(k); if (!b) { b = new MeshBuf(); this.map.set(k, b); } return b; }
+}
+
+// Face plane convexe (fan) orientée selon `want`
+function addFace(buf, verts, uvs, want) {
+  const n = verts.length;
+  let nx = 0, ny = 0, nz = 0;
+  for (let i = 0; i < n; i++) {
+    const p = verts[i], q = verts[(i + 1) % n];
+    nx += (p[1] - q[1]) * (p[2] + q[2]); ny += (p[2] - q[2]) * (p[0] + q[0]); nz += (p[0] - q[0]) * (p[1] + q[1]);
+  }
+  let vs = verts, us = uvs;
+  if (nx * want[0] + ny * want[1] + nz * want[2] < 0) { vs = verts.slice().reverse(); us = uvs.slice().reverse(); nx = -nx; ny = -ny; nz = -nz; }
+  const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+  const base = buf.count;
+  for (let i = 0; i < n; i++) buf.v(vs[i][0], vs[i][1], vs[i][2], nx, ny, nz, us[i][0], us[i][1]);
+  for (let i = 1; i < n - 1; i++) buf.t(base, base + i, base + i + 1);
+}
+
+// Murs d'un anneau (extérieur : aire<0 → normales sortantes ; trou : aire>0 → vers la cour)
+function addWalls(buf, ring, y0, y1, gref) {
+  let u = 0;
+  const v0 = (y0 - gref) / FLOOR_H, v1 = (y1 - gref) / FLOOR_H;
+  for (let i = 0, n = ring.length; i < n; i++) {
+    const a = ring[i], b = ring[(i + 1) % n];
+    const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz);
+    if (L < 0.01) continue;
+    const nx = -dz / L, nz = dx / L, u0 = u / BAY_W, u1 = (u + L) / BAY_W;
+    const i0 = buf.v(a[0], y0, a[1], nx, 0, nz, u0, v0);
+    const i1 = buf.v(b[0], y0, b[1], nx, 0, nz, u1, v0);
+    const i2 = buf.v(b[0], y1, b[1], nx, 0, nz, u1, v1);
+    const i3 = buf.v(a[0], y1, a[1], nx, 0, nz, u0, v1);
+    buf.t(i0, i1, i2); buf.t(i0, i2, i3);
+    u += L;
+  }
+}
+
+function addFlatRoof(buf, rings, y, uvf, triangulate) {
+  const tris = triangulate(rings[0], rings.slice(1));
+  const all = [].concat(...rings);
+  const base = buf.count;
+  for (const p of all) { const uv = uvf(p[0], p[1]); buf.v(p[0], y, p[1], 0, 1, 0, uv[0], uv[1]); }
+  for (const t of tris) buf.tUp(base + t[0], base + t[1], base + t[2]);
+}
+
+function addPitchedRoof(rb, wb, rc, top, rise, type, gref, uvOrtho) {
+  const { cx, cz, ux, uz, vx, vz, halfL, halfW } = rc;
+  const P = (a, b, y) => [cx + ux * a + vx * b, y, cz + uz * a + vz * b];
+  const A = P(-halfL, -halfW, top), B = P(halfL, -halfW, top), C = P(halfL, halfW, top), D = P(-halfL, halfW, top);
+  const ry = top + rise;
+  let R1, R2;
+  if (type === 'gable') { R1 = P(-halfL, 0, ry); R2 = P(halfL, 0, ry); }
+  else { const d = Math.max(0, halfL - halfW); R1 = P(-d, 0, ry); R2 = P(d, 0, ry); }
+  const sec = Math.hypot(1, rise / Math.max(0.5, halfW));
+  const roofUV = (verts) => {
+    if (uvOrtho) return verts.map(p => uvOrtho(p[0], p[2]));
+    const p0 = verts[0], p1 = verts[1];
+    let ex = p1[0] - p0[0], ez = p1[2] - p0[2]; const el = Math.hypot(ex, ez) || 1; ex /= el; ez /= el;
+    let sx = -ez, sz = ex;
+    let mx = 0, mz = 0; for (const p of verts) { mx += p[0]; mz += p[2]; } mx /= verts.length; mz /= verts.length;
+    if ((mx - p0[0]) * sx + (mz - p0[2]) * sz < 0) { sx = -sx; sz = -sz; }
+    return verts.map(p => [((p[0] - p0[0]) * ex + (p[2] - p0[2]) * ez) / 2, ((p[0] - p0[0]) * sx + (p[2] - p0[2]) * sz) * sec / 2]);
+  };
+  const UP = [0, 1, 0];
+  const f1 = [A, B, R2, R1], f2 = [C, D, R1, R2];
+  addFace(rb, f1, roofUV(f1), UP);
+  addFace(rb, f2, roofUV(f2), UP);
+  if (type === 'gable') {
+    const wallUV = (verts) => { const p0 = verts[0]; return verts.map(p => [Math.hypot(p[0] - p0[0], p[2] - p0[2]) / BAY_W, (p[1] - gref) / FLOOR_H]); };
+    const g1 = [A, D, R1], g2 = [B, C, R2];
+    addFace(wb, g1, wallUV(g1), [-ux, 0, -uz]);
+    addFace(wb, g2, wallUV(g2), [ux, 0, uz]);
+  } else {
+    const h1 = [D, A, R1], h2 = [B, C, R2];
+    addFace(rb, h1, roofUV(h1), UP);
+    addFace(rb, h2, roofUV(h2), UP);
+  }
+}
+
+// Bâtiment complet
+function buildBuilding(b, ground, bufs, o) {
+  let rings = b.rings;
+  const outer = rings[0];
+  let gmin = Infinity, gsum = 0;
+  for (const p of outer) { const g = ground(p[0], p[1]); if (g < gmin) gmin = g; gsum += g; }
+  const gref = gsum / outer.length, base = gmin - 0.6;
+  const h = Math.max(2.6, b.height || 6);
+  let top = gref + h;
+  let area = -ringAreaXZ(outer);
+  for (let k = 1; k < rings.length; k++) area -= ringAreaXZ(rings[k]);
+  let roof = 'flat', rect = null, rise = 0;
+  if (o.pitched && rings.length === 1 && b.roofHint !== 'flat' && area > 12 && area < 900) {
+    rect = minAreaRect(outer);
+    if (rect && rect.halfW > 1.4) {
+      const fill = area / (4 * rect.halfL * rect.halfW);
+      const want = b.rise > 0.6 || b.roofHint === 'pitched'
+        || (b.category === 'residentiel' && area < 320 && h <= 13.5)
+        || (b.category === 'annexe' && area < 120);
+      if (want && fill > 0.85) {
+        roof = rect.halfL / rect.halfW > 1.3 ? 'gable' : 'hip';
+        rise = b.rise > 0.6 ? Math.min(b.rise, rect.halfW * 0.8) : rect.halfW * 0.32;
+      }
+    }
+  }
+  if (roof !== 'flat') rings = [rectRing(rect)];
+  else if (b.rise > 0.6) top += Math.min(b.rise * 0.5, 4); // toit complexe : volume moyen
+  const wb = bufs.get(b.wallKey);
+  for (const r of rings) addWalls(wb, r, base, top, gref);
+  const roofKey = o.roofOrtho ? 'toit_ortho' : roof !== 'flat' ? 'toit_tuiles' : b.category === 'industriel' ? 'toit_indus' : 'toit_plat';
+  const rb = bufs.get(roofKey);
+  if (roof === 'flat') addFlatRoof(rb, rings, top, o.roofOrtho ? o.uvOrtho : (x, z) => [x / 4, z / 4], o.triangulate);
+  else addPitchedRoof(rb, wb, rect, top, rise, roof, gref, o.roofOrtho ? o.uvOrtho : null);
+  return { ring: rings[0], top: top + rise, base };
+}
+
+// Ruban (route, rail, cours d'eau) — pts : [x, z, y]
+function addRibbon(buf, pts, width, vRepeat) {
+  const n = pts.length; if (n < 2) return;
+  const hw = width / 2, segN = [];
+  for (let i = 0; i < n - 1; i++) {
+    const dx = pts[i + 1][0] - pts[i][0], dz = pts[i + 1][1] - pts[i][1], L = Math.hypot(dx, dz);
+    segN.push(L < 1e-6 ? (segN[segN.length - 1] || [1, 0]) : [dz / L, -dx / L]);
+  }
+  let dist = 0, pL = -1, pR = -1;
+  for (let i = 0; i < n; i++) {
+    let nl;
+    if (i === 0) nl = segN[0];
+    else if (i === n - 1) nl = segN[n - 2];
+    else {
+      const a = segN[i - 1], b = segN[i];
+      let mx = a[0] + b[0], mz = a[1] + b[1]; const ml = Math.hypot(mx, mz);
+      if (ml < 1e-6) { mx = b[0]; mz = b[1]; } else { mx /= ml; mz /= ml; }
+      const d = Math.max(0.35, mx * b[0] + mz * b[1]);
+      nl = [mx / d, mz / d];
+    }
+    if (i > 0) dist += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    const p = pts[i], v = dist / vRepeat;
+    const L = buf.v(p[0] + nl[0] * hw, p[2], p[1] + nl[1] * hw, 0, 1, 0, 0, v);
+    const R = buf.v(p[0] - nl[0] * hw, p[2], p[1] - nl[1] * hw, 0, 1, 0, 1, v);
+    if (i > 0) { buf.tUp(pR, R, pL); buf.tUp(R, L, pL); }
+    pL = L; pR = R;
+  }
+}
+
+// Polygone drapé sur le relief (découpé cellule par cellule de la grille du sol)
+function drapePolygon(buf, rings, rect, ground, off, uvf, triangulate, g) {
+  const outer = clipRingRect(rings[0], rect.x0, rect.z0, rect.x1, rect.z1);
+  if (!outer) return 0;
+  const holes = rings.slice(1);
+  const bb = ringBBox(outer);
+  let tris = 0;
+  for (let j = Math.floor(bb.minZ / g); j <= Math.floor((bb.maxZ - 1e-9) / g); j++) {
+    for (let i = Math.floor(bb.minX / g); i <= Math.floor((bb.maxX - 1e-9) / g); i++) {
+      const piece = cleanRing(clipRingRect(outer, i * g, j * g, (i + 1) * g, (j + 1) * g), 0.01, 0);
+      if (!piece) continue;
+      const tr = triangulate(piece, []);
+      const base = buf.count;
+      for (const p of piece) { const uv = uvf(p[0], p[1]); buf.v(p[0], ground(p[0], p[1]) + off, p[1], 0, 1, 0, uv[0], uv[1]); }
+      for (const t of tr) {
+        if (holes.length) {
+          const cx = (piece[t[0]][0] + piece[t[1]][0] + piece[t[2]][0]) / 3, cz = (piece[t[0]][1] + piece[t[1]][1] + piece[t[2]][1]) / 3;
+          if (holes.some(h => pointInRing(cx, cz, h))) continue;
+        }
+        buf.tUp(base + t[0], base + t[1], base + t[2]); tris++;
+      }
+    }
+  }
+  return tris;
+}
+
+// Sol : grille régulière, normales lissées (continuité entre tuiles)
+function buildTerrain(buf, x0, z0, S, ground, uvMode) {
+  const g = GRID_G, N = Math.round(S / g), base = buf.count;
+  for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) {
+    const x = x0 + i * g, z = z0 + j * g, y = ground(x, z);
+    let nx = ground(x - g, z) - ground(x + g, z), ny = 2 * g, nz = ground(x, z - g) - ground(x, z + g);
+    const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
+    const u = uvMode === 'ortho' ? i / N : x / 25, v = uvMode === 'ortho' ? 1 - j / N : -z / 25;
+    buf.v(x, y, z, nx, ny, nz, u, v);
+  }
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const a = base + j * (N + 1) + i, b = a + 1, c = a + (N + 1), d = c + 1;
+    buf.t(a, c, b); buf.t(b, c, d);
+  }
+}
+
+function addInstance(buf, tp, tx, ty, tz, sx, sy, sz) {
+  const base = buf.count, P = tp.pos, N = tp.nrm;
+  for (let k = 0; k < P.length; k += 3) {
+    let nx = N[k] / sx, ny = N[k + 1] / sy, nz = N[k + 2] / sz; const l = Math.hypot(nx, ny, nz) || 1;
+    buf.v(tx + P[k] * sx, ty + P[k + 1] * sy, tz + P[k + 2] * sz, nx / l, ny / l, nz / l, P[k] * 0.5 + 0.5, P[k + 1] * 0.5 + 0.5);
+  }
+  for (const i of tp.idx) buf.idx.push(base + i);
+}
+function addTrees(bufs, list, ground, tpl, rng) {
+  const tb = bufs.get('tronc');
+  for (const t of list) {
+    const kind = t.kind;
+    const h = t.h && t.h > 3 && t.h < 35 ? t.h : kind === 'pin' ? 9 + rng() * 5 : 7 + rng() * 6;
+    let cr, sy, cy, th, trR;
+    if (kind === 'pin') { cr = h * 0.32 * (0.85 + rng() * 0.3); sy = 0.42; cy = h * 0.82; th = h * 0.8; trR = 0.22; }
+    else { cr = h * 0.3 * (0.85 + rng() * 0.3); sy = 0.85; cy = h * 0.62; th = h * 0.55; trR = 0.2 + h * 0.008; }
+    const y = ground(t.x, t.z);
+    addInstance(tb, tpl.trunk, t.x, y - 0.2, t.z, trR, th + 0.2, trR);
+    addInstance(bufs.get('feuillage_' + Math.floor(rng() * 3)), tpl.crown, t.x, y + cy, t.z, cr, cr * sy, cr);
+  }
+}
+
+// ---------------------------------------------------------------------
+// Tuile complète
+// ---------------------------------------------------------------------
+function buildTileGeometry(tile, data, opts, ground, triangulate, tpl) {
+  const S = tile.S, x0 = tile.i * S, z0 = tile.j * S, x1 = x0 + S, z1 = z0 + S;
+  const rect = { x0, z0, x1, z1 };
+  const bufs = new Bufs();
+  const rng = mulberry32(hashStr(tile.id));
+  const stats = { batiments: 0, routesKm: 0, arbres: 0, triangles: 0, sommets: 0 };
+  const colliders = [], roadsOut = [], railsOut = [];
+  const uvOrtho = (x, z) => [(x - x0) / S, 1 - (z - z0) / S];
+  const inTile = (x, z) => x >= x0 && x < x1 && z >= z0 && z < z1;
+  const osm = data.osm || {};
+  const r2 = v => Math.round(v * 100) / 100;
+
+  // 1. Bâtiments (attribués à la tuile qui contient leur centroïde)
+  const bo = { pitched: opts.pitched, roofOrtho: !!(opts.orthoRoofs && opts.hasOrtho), uvOrtho, triangulate };
+  for (const b of data.buildings || []) {
+    const c = ringCentroid(b.rings[0]);
+    if (!inTile(c[0], c[1])) continue;
+    b.wallKey = 'mur_' + b.category + '_' + (hashStr(String(b.id)) % (WALL_VARIANTS[b.category] || 1));
+    try {
+      const r = buildBuilding(b, ground, bufs, bo);
+      colliders.push({ ring: r.ring, top: r.top, id: b.id });
+      stats.batiments++;
+    } catch (e) { /* géométrie dégénérée ignorée */ }
+  }
+  const bgrid = new SpatialGrid(12);
+  colliders.forEach((c, i) => bgrid.insertBBox(ringBBox(c.ring), i));
+  const inBuilding = (x, z) => bgrid.query(x, z).some(i => pointInRing(x, z, colliders[i].ring));
+
+  // 2. Voies (routes, chemins, rails)
+  const sgrid = new SpatialGrid(10);
+  const addLinear = (rd, style, out) => {
+    const off = style.off + (hashStr(String(rd.id)) % 4) * 0.012;
+    const full = []; let s = 0;
+    for (let k = 0; k < rd.pts.length; k++) { if (k) s += Math.hypot(rd.pts[k][0] - rd.pts[k - 1][0], rd.pts[k][1] - rd.pts[k - 1][1]); full.push([rd.pts[k][0], rd.pts[k][1], s]); }
+    const Lt = s; if (Lt < 0.5) return;
+    let yA = 0, yB = 0;
+    if (rd.bridge) { yA = ground(full[0][0], full[0][1]) + off; yB = ground(full[full.length - 1][0], full[full.length - 1][1]) + off; }
+    const yOf = p => { const g = ground(p[0], p[1]) + off; return rd.bridge ? Math.max(g, yA + (yB - yA) * (p[2] / Lt)) : g; };
+    for (const pc of clipPolylineRect(full, x0, z0, x1, z1)) {
+      const dd = dedupePts(pc);
+      if (dd.length < 2) continue;
+      const d = densify(dd, 6);
+      addRibbon(bufs.get(style.key), d.map(p => [p[0], p[1], yOf(p)]), rd.width, style.rep);
+      const len = pathLen(dd);
+      if (out) {
+        out.push({ id: rd.id, classe: rd.hw, categorie: rd.cls, nom: rd.name || '', largeur: r2(rd.width), sensUnique: rd.oneway || 0, vitesseMax: rd.maxspeed || null, pont: !!rd.bridge, longueur: r2(len), points: dd.map(p => [r2(p[0]), r2(yOf(p) - off), r2(p[1])]) });
+      }
+      for (let k = 0; k < dd.length - 1; k++) {
+        const a = dd[k], b = dd[k + 1];
+        sgrid.insertBBox({ minX: Math.min(a[0], b[0]) - rd.width, maxX: Math.max(a[0], b[0]) + rd.width, minZ: Math.min(a[1], b[1]) - rd.width, maxZ: Math.max(a[1], b[1]) + rd.width }, [a[0], a[1], b[0], b[1], rd.width / 2]);
+      }
+      if (rd.cls !== 'rail') stats.routesKm += len / 1000;
+    }
+  };
+  if (opts.roads) for (const rd of osm.roads || []) addLinear(rd, ROAD_STYLE[rd.cls] || ROAD_STYLE.minor, roadsOut);
+  if (opts.rails) for (const rd of osm.rails || []) addLinear(rd, ROAD_STYLE.rail, railsOut);
+  const nearRoad = (x, z, m) => sgrid.query(x, z).some(s => distPointSeg(x, z, s[0], s[1], s[2], s[3]) < s[4] + m);
+
+  // 3. Places piétonnes et eau (drapées)
+  if (opts.plazas) for (const pa of osm.pedAreas || []) drapePolygon(bufs.get('dalle_pietonne'), pa.rings, rect, ground, 0.05, (x, z) => [x / 2, -z / 2], triangulate, GRID_G);
+  if (opts.water) {
+    for (const wa of osm.waterAreas || []) drapePolygon(bufs.get('eau'), wa.rings, rect, ground, 0.06, (x, z) => [x / 10, -z / 10], triangulate, GRID_G);
+    for (const wl of osm.waterLines || []) {
+      for (const pc of clipPolylineRect(wl.pts, x0, z0, x1, z1)) {
+        const dd = dedupePts(pc); if (dd.length < 2) continue;
+        addRibbon(bufs.get('eau'), densify(dd, 6).map(p => [p[0], p[1], ground(p[0], p[1]) + 0.06]), wl.width, 10);
+      }
+    }
+  }
+
+  // 4. Arbres (OSM + alignements + parcs)
+  if (opts.trees) {
+    const list = [];
+    for (const t of osm.trees || []) if (inTile(t.x, t.z) && !inBuilding(t.x, t.z)) list.push(t);
+    for (const row of osm.treeRows || []) {
+      for (const pc of clipPolylineRect(row.pts, x0, z0, x1, z1)) {
+        let acc = 0;
+        for (let k = 0; k < pc.length - 1; k++) {
+          const a = pc[k], b = pc[k + 1], sl = Math.hypot(b[0] - a[0], b[1] - a[1]);
+          while (acc <= sl) { const p = lerpPt(a, b, sl ? acc / sl : 0); if (!inBuilding(p[0], p[1])) list.push({ x: p[0], z: p[1], kind: 'feuillu' }); acc += 9; }
+          acc -= sl;
+        }
+      }
+    }
+    const DENS = { park: 1 / 140, garden: 1 / 160, forest: 1 / 45, wood: 1 / 45, scrub: 1 / 120, grass: 1 / 450, recreation_ground: 1 / 500, village_green: 1 / 300, meadow: 1 / 900 };
+    for (const gr of osm.greens || []) {
+      const pts = scatterInPolygon(gr.rings, x0, z0, x1, z1, DENS[gr.kind] || 1 / 300, rng, 1500);
+      for (const p of pts) {
+        if (inBuilding(p[0], p[1]) || nearRoad(p[0], p[1], 1.5)) continue;
+        list.push({ x: p[0], z: p[1], kind: (gr.kind === 'forest' || gr.kind === 'wood') && rng() < 0.5 ? 'pin' : 'feuillu' });
+      }
+    }
+    const kept = list.slice(0, 4000);
+    addTrees(bufs, kept, ground, tpl, rng);
+    stats.arbres = kept.length;
+  }
+
+  // 5. Sol
+  buildTerrain(bufs.get('sol'), x0, z0, S, ground, opts.hasOrtho ? 'ortho' : 'monde');
+
+  for (const b of bufs.map.values()) { stats.triangles += b.idx.length / 3; stats.sommets += b.count; }
+  stats.routesKm = Math.round(stats.routesKm * 100) / 100;
+  return { bufs, colliders, roads: roadsOut, rails: railsOut, stats };
+}
+
+// =====================================================================
+// APP — interface, données en ligne, rendu Three.js, mode jeu, exports
+// =====================================================================
+const $ = id => document.getElementById(id);
+const IS_TOUCH = matchMedia('(pointer: coarse)').matches;
+const IS_SMALL = matchMedia('(max-width: 900px)').matches;
+
+const QUARTIERS = [
+  { nom: 'Centre historique', lat: 42.7001, lng: 2.8946, q: 'Le Castillet, Perpignan' },
+  { nom: 'Saint-Jacques', lat: 42.6995, lng: 2.8998, q: 'Saint-Jacques, Perpignan' },
+  { nom: 'Gare / St-Assiscle', lat: 42.6958, lng: 2.8795, q: 'Gare de Perpignan' },
+  { nom: 'Moulin-à-Vent', lat: 42.6830, lng: 2.9010, q: 'Moulin à Vent, Perpignan' },
+  { nom: 'Le Vernet', lat: 42.7170, lng: 2.8880, q: 'Le Vernet, Perpignan' },
+  { nom: 'Saint-Martin', lat: 42.6890, lng: 2.9100, q: 'Saint-Martin, Perpignan' },
+  { nom: 'Mailloles', lat: 42.6920, lng: 2.8660, q: 'Mailloles, Perpignan' },
+  { nom: 'Bords de la Têt', lat: 42.7055, lng: 2.8930, q: null },
+];
+const MARKER_META = {
+  spawn: { icon: '🚩', color: '#10b981', name: 'Spawn joueur' },
+  vehicle: { icon: '🚗', color: '#3b82f6', name: 'Garage / véhicule' },
+  mission: { icon: '⭐', color: '#f59e0b', name: 'Mission / quête' },
+  checkpoint: { icon: '🏁', color: '#06b6d4', name: 'Checkpoint' },
+  landmark: { icon: '🏛️', color: '#8b5cf6', name: 'Monument / QG' },
+  npc: { icon: '👤', color: '#ec4899', name: 'PNJ / boss' },
+  danger: { icon: '⚠️', color: '#ef4444', name: 'Zone danger' },
+};
+const PAL = {
+  residentiel: ['#ecd29f', '#e8b28c', '#dc9b78', '#f2e8d8', '#e9d5ad', '#d9b07d', '#f1d6c6'],
+  commerce: ['#ebe7e0', '#d9d6d0'],
+};
+const ROAD_KEYS = new Set(['route_principale', 'rue', 'pietons', 'voie_ferree']);
+const ORTHO_SRC = {
+  ign: { name: 'Orthophoto IGN', maxZ: 19, url: (z, x, y) => `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=${z}&TILEROW=${y}&TILECOL=${x}` },
+  esri: { name: 'Esri World Imagery', maxZ: 19, url: (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}` },
+};
+const OVERPASS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+];
+const IGN_EP = ['https://data.geopf.fr/wfs/ows', 'https://data.geopf.fr/wfs'];
+const IGN_TN = ['BDTOPO_V3:batiment', 'bd_topo:batiment'];
+
+// ----------------------------- ÉTAT -----------------------------
+const st = {
+  empriseKm: 8, S: 500,
+  selected: new Set(), generated: new Map(), loading: new Set(),
+  view: 'map', mapStyle: 'ortho', showGrid: true, placingMarker: false,
+  focus: { lat: ORIGIN.lat, lng: ORIGIN.lng, nom: 'centre-ville' },
+  markers: [
+    { id: 1, type: 'spawn', label: 'Le Castillet (spawn)', lat: 42.7006, lng: 2.8942 },
+    { id: 2, type: 'landmark', label: 'Palais des Rois de Majorque', lat: 42.6939, lng: 2.8958 },
+    { id: 3, type: 'vehicle', label: 'Garage gare', lat: 42.6961, lng: 2.8794 },
+    { id: 4, type: 'mission', label: 'Mission place de la République', lat: 42.6985, lng: 2.8949 },
+  ],
+  busy: false, cancel: false,
+  ign: { combo: null, fails: 0, down: false },
+  ovIdx: 0, lastAlt: 35, reliefUsed: null,
+};
+const CACHE = { bld: new Map(), osm: new Map(), ortho: new Map() };
+
+// ----------------------------- OUTILS -----------------------------
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._tm); t._tm = setTimeout(() => t.classList.remove('show'), 3200);
+}
+function setStatus(text, busy = false) { $('statusText').textContent = text; $('statusDot').className = busy ? 'dot busy' : 'dot'; }
+function log(msg, cls = '') {
+  const el = $('log'), d = document.createElement('div');
+  if (cls) d.className = cls;
+  d.textContent = msg; el.appendChild(d);
+  while (el.children.length > 250) el.removeChild(el.firstChild);
+  el.scrollTop = el.scrollHeight;
+}
+function setProgress(f, text) { if (typeof f === 'number') $('progressBar').style.width = (clamp(f, 0, 1) * 100).toFixed(1) + '%'; if (text !== undefined) $('progressText').textContent = text; }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function fetchWithTimeout(url, opts = {}, ms = 30000) {
+  const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), ms);
+  try { return await fetch(url, Object.assign({}, opts, { signal: ac.signal })); } finally { clearTimeout(tm); }
+}
+async function pool(items, n, fn) {
+  let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) { const k = i++; await fn(items[k], k); } }));
+}
+function downloadBlob(blob, name) {
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+const fmt = n => Math.round(n).toLocaleString('fr-FR');
+const fmtMo = b => b < 1048576 ? Math.max(1, Math.round(b / 1024)).toLocaleString('fr-FR') + ' Ko' : (b / 1048576).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' Mo';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const slugify = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+
+// ----------------------------- RELIEF (MNT) -----------------------------
+const DEM = {
+  z: 14, tiles: new Map(), pending: new Map(),
+  async ensure(g) {
+    const p0 = lngLatToPixel(g.west, g.north, this.z), p1 = lngLatToPixel(g.east, g.south, this.z);
+    const jobs = [];
+    for (let ty = Math.floor(p0.y / 256); ty <= Math.floor(p1.y / 256); ty++)
+      for (let tx = Math.floor(p0.x / 256); tx <= Math.floor(p1.x / 256); tx++) jobs.push(this.load(tx, ty));
+    await Promise.all(jobs);
+  },
+  load(tx, ty) {
+    const k = tx + '/' + ty;
+    if (this.tiles.has(k)) return Promise.resolve();
+    if (this.pending.has(k)) return this.pending.get(k);
+    const p = (async () => {
+      const r = await fetchWithTimeout(`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${this.z}/${tx}/${ty}.png`, { mode: 'cors' }, 25000);
+      if (!r.ok) throw new Error('MNT HTTP ' + r.status);
+      const blob = await r.blob();
+      let bmp;
+      try { bmp = await createImageBitmap(blob, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' }); }
+      catch (e) { bmp = await createImageBitmap(blob); }
+      const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+      const ctx = c.getContext('2d', { willReadFrequently: true }); ctx.drawImage(bmp, 0, 0);
+      const d = ctx.getImageData(0, 0, 256, 256).data, h = new Float32Array(65536);
+      for (let i = 0; i < 65536; i++) h[i] = d[i * 4] * 256 + d[i * 4 + 1] + d[i * 4 + 2] / 256 - 32768;
+      this.tiles.set(k, h);
+    })().finally(() => this.pending.delete(k));
+    this.pending.set(k, p);
+    return p;
+  },
+  px(gx, gy) {
+    const tx = Math.floor(gx / 256), ty = Math.floor(gy / 256), t = this.tiles.get(tx + '/' + ty);
+    return t ? t[(gy - ty * 256) * 256 + (gx - tx * 256)] : NaN;
+  },
+  sample(lat, lng) {
+    const p = lngLatToPixel(lng, lat, this.z), gx = p.x - 0.5, gy = p.y - 0.5;
+    const x0 = Math.floor(gx), y0 = Math.floor(gy), fx = gx - x0, fy = gy - y0;
+    const a = this.px(x0, y0), b = this.px(x0 + 1, y0), c = this.px(x0, y0 + 1), d = this.px(x0 + 1, y0 + 1);
+    if (Number.isNaN(a) || Number.isNaN(b) || Number.isNaN(c) || Number.isNaN(d)) return NaN;
+    return a * (1 - fx) * (1 - fy) + b * fx * (1 - fy) + c * (1 - fx) * fy + d * fx * fy;
+  },
+};
+const NODE_TAPS = [[0, 0], [GRID_G / 2, 0], [-GRID_G / 2, 0], [0, GRID_G / 2], [0, -GRID_G / 2]];
+const nodeCache = new Map();
+function nodeH(i, j) {
+  const k = (i + 50000) * 100003 + (j + 50000);
+  const c = nodeCache.get(k); if (c !== undefined) return c;
+  let s = 0, n = 0;
+  for (const [dx, dz] of NODE_TAPS) {
+    const g = localToGeo(i * GRID_G + dx, j * GRID_G + dz), v = DEM.sample(g.lat, g.lng);
+    if (Number.isFinite(v) && v > -60 && v < 3500) { s += v; n++; }
+  }
+  if (!n) return st.lastAlt;
+  const h = s / n; st.lastAlt = h; nodeCache.set(k, h);
+  return h;
+}
+const groundRelief = makeGround(nodeH, GRID_G);
+const groundFlat = () => 0;
+let ground = groundRelief;
+
+// ----------------------------- SOURCES EN LIGNE -----------------------------
+async function wfsPaged(ep, tn, bbox) {
+  const COUNT = 2000, all = [];
+  for (let page = 0, start = 0; page < 25; page++, start += COUNT) {
+    const url = `${ep}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=${encodeURIComponent(tn)}&OUTPUTFORMAT=${encodeURIComponent('application/json')}&SRSNAME=EPSG:4326&BBOX=${encodeURIComponent(bbox)}&COUNT=${COUNT}&STARTINDEX=${start}`;
+    const res = await fetchWithTimeout(url, { mode: 'cors' }, 45000);
+    if (!res.ok) throw new Error('WFS HTTP ' + res.status);
+    const txt = await res.text();
+    if (!/^\s*\{/.test(txt)) throw new Error('réponse WFS non JSON');
+    const f = JSON.parse(txt).features || [];
+    all.push(...f);
+    if (f.length < COUNT) break;
+  }
+  return all;
+}
+async function fetchIGNBuildings(geo) {
+  const [mx0, my0] = lngLatToMerc(geo.west, geo.south), [mx1, my1] = lngLatToMerc(geo.east, geo.north);
+  const bb = {
+    m: `${mx0.toFixed(2)},${my0.toFixed(2)},${mx1.toFixed(2)},${my1.toFixed(2)},urn:ogc:def:crs:EPSG::3857`,
+    g: `${geo.south.toFixed(7)},${geo.west.toFixed(7)},${geo.north.toFixed(7)},${geo.east.toFixed(7)},urn:ogc:def:crs:EPSG::4326`,
+  };
+  const combos = st.ign.combo ? [st.ign.combo] : [];
+  for (const ep of IGN_EP) for (const tn of IGN_TN) for (const b of ['m', 'g']) combos.push({ ep, tn, b });
+  let lastErr = null, empty = null;
+  for (let k = 0; k < combos.length; k++) {
+    const c = combos[k];
+    try {
+      const f = await wfsPaged(c.ep, c.tn, bb[c.b]);
+      if (f.length) { st.ign.combo = c; return f; }
+      if (st.ign.combo && k === 0) return f;
+      empty = f;
+    } catch (e) { lastErr = e; }
+  }
+  if (empty) return empty;
+  throw lastErr || new Error('WFS IGN indisponible');
+}
+async function fetchOverpass(q) {
+  let lastErr = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    for (let k = 0; k < OVERPASS.length; k++) {
+      const idx = (st.ovIdx + k) % OVERPASS.length;
+      try {
+        const res = await fetchWithTimeout(OVERPASS[idx], { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }, 95000);
+        if (res.ok) {
+          const js = await res.json();
+          if (js.remark && /runtime error|timed out|out of memory/i.test(js.remark)) throw new Error('Overpass : ' + js.remark.slice(0, 90));
+          st.ovIdx = idx; return js;
+        }
+        lastErr = new Error('Overpass HTTP ' + res.status);
+      } catch (e) { lastErr = e; }
+    }
+    await sleep(2500 * (attempt + 1));
+  }
+  throw lastErr || new Error('Overpass indisponible');
+}
+function overpassQuery(g, withB) {
+  const bb = `${g.south.toFixed(7)},${g.west.toFixed(7)},${g.north.toFixed(7)},${g.east.toFixed(7)}`;
+  return `[out:json][timeout:90][bbox:${bb}];(
+way["highway"];
+way["railway"~"^(rail|light_rail|tram|narrow_gauge|subway|preserved)$"];
+way["natural"="water"];relation["natural"="water"];
+way["waterway"~"^(river|canal|stream|ditch|drain|riverbank)$"];relation["waterway"="riverbank"];
+way["landuse"~"^(reservoir|basin)$"];
+way["leisure"~"^(park|garden)$"];relation["leisure"~"^(park|garden)$"];
+way["landuse"~"^(grass|forest|recreation_ground|village_green|meadow)$"];relation["landuse"="forest"];
+way["natural"~"^(wood|scrub)$"];relation["natural"="wood"];
+node["natural"="tree"];way["natural"="tree_row"];
+node["amenity"~"^(fuel|parking|hospital|police|fire_station|school|townhall|place_of_worship|marketplace|university)$"];
+node["tourism"~"^(attraction|museum|viewpoint|hotel)$"];
+${withB ? 'way["building"];relation["building"]["type"="multipolygon"];' : ''}
+);out geom qt;`;
+}
+async function stitchOrtho(src, geo, size, S) {
+  const lat = (geo.north + geo.south) / 2, target = S / size;
+  let z = 15;
+  while (z < src.maxZ && 156543.03392 * Math.cos(lat * DEG) / Math.pow(2, z) > target * 1.15) z++;
+  const p0 = lngLatToPixel(geo.west, geo.north, z), p1 = lngLatToPixel(geo.east, geo.south, z);
+  const tx0 = Math.floor(p0.x / 256), tx1 = Math.floor((p1.x - 1e-6) / 256), ty0 = Math.floor(p0.y / 256), ty1 = Math.floor((p1.y - 1e-6) / 256);
+  const sc = document.createElement('canvas'); sc.width = (tx1 - tx0 + 1) * 256; sc.height = (ty1 - ty0 + 1) * 256;
+  const sctx = sc.getContext('2d'); sctx.fillStyle = '#8a8476'; sctx.fillRect(0, 0, sc.width, sc.height);
+  const jobs = []; for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) jobs.push([tx, ty]);
+  let ok = 0;
+  await pool(jobs, 8, async ([tx, ty]) => {
+    try {
+      const r = await fetchWithTimeout(src.url(z, tx, ty), { mode: 'cors' }, 20000);
+      if (!r.ok) return;
+      const bmp = await createImageBitmap(await r.blob());
+      sctx.drawImage(bmp, (tx - tx0) * 256, (ty - ty0) * 256);
+      if (bmp.close) bmp.close();
+      ok++;
+    } catch (e) { /* tuile manquante */ }
+  });
+  const out = document.createElement('canvas'); out.width = size; out.height = size;
+  out.getContext('2d').drawImage(sc, p0.x - tx0 * 256, p0.y - ty0 * 256, p1.x - p0.x, p1.y - p0.y, 0, 0, size, size);
+  return { canvas: out, okRatio: jobs.length ? ok / jobs.length : 0, z };
+}
+async function fetchOrtho(t, geo, opts) {
+  let key = opts.orthoSource;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const src = ORTHO_SRC[key];
+    const res = await stitchOrtho(src, geo, opts.texSize, t.S);
+    if (res.okRatio > 0.6) return { canvas: res.canvas, source: src.name, z: res.z };
+    if (key === 'ign') { log(`  orthophoto IGN incomplète (${Math.round(res.okRatio * 100)} %) → essai Esri`, 'warn'); key = 'esri'; } else break;
+  }
+  return null;
+}
+async function loadTileData(t, opts) {
+  const geo = tileBoundsGeo(t.i, t.j, t.S);
+  const demP = opts.relief ? DEM.ensure(expandGeo(geo, 700)).catch(e => log('  relief indisponible (' + e.message + ') → altitude constante', 'warn')) : Promise.resolve();
+  let orthoP = Promise.resolve(null);
+  if (opts.orthoSource !== 'none') {
+    const oKey = `${t.id}|${t.S}|${opts.orthoSource}|${opts.texSize}`;
+    orthoP = CACHE.ortho.has(oKey) ? Promise.resolve(CACHE.ortho.get(oKey))
+      : fetchOrtho(t, geo, opts).then(r => { if (r) CACHE.ortho.set(oKey, r); return r; }).catch(e => { log('  orthophoto indisponible : ' + e.message, 'warn'); return null; });
+  }
+  let buildings = null, bsrc = '';
+  if (opts.bldSource === 'ign' && !st.ign.down) {
+    const bKey = `${t.id}|${t.S}|ign`;
+    if (CACHE.bld.has(bKey)) { buildings = CACHE.bld.get(bKey); bsrc = 'IGN BD TOPO'; }
+    else {
+      setProgress(undefined, `${t.id} : bâtiments IGN…`);
+      try {
+        const feats = await fetchIGNBuildings(geo);
+        buildings = parseIGN(feats, (geo.north + geo.south) / 2, (geo.east + geo.west) / 2);
+        CACHE.bld.set(bKey, buildings); bsrc = 'IGN BD TOPO'; st.ign.fails = 0;
+      } catch (e) {
+        st.ign.fails++;
+        log(`  IGN BD TOPO indisponible (${e.message}) → OpenStreetMap`, 'warn');
+        if (st.ign.fails >= 2) { st.ign.down = true; log('  IGN désactivé pour cette session (2 échecs).', 'warn'); }
+      }
+    }
+  }
+  const withB = !buildings;
+  const sKey = `${t.id}|${t.S}|${withB ? 'b' : ''}`;
+  let osm = CACHE.osm.get(sKey);
+  if (!osm) {
+    setProgress(undefined, `${t.id} : routes, eau, arbres (OpenStreetMap)…`);
+    try { const js = await fetchOverpass(overpassQuery(geo, withB)); osm = parseOSM(js.elements, withB); CACHE.osm.set(sKey, osm); }
+    catch (e) {
+      log('  OpenStreetMap indisponible : ' + e.message, 'warn');
+      osm = parseOSM([], false);
+      if (withB) throw new Error('aucune source de bâtiments disponible');
+    }
+  }
+  if (withB) { buildings = osm.buildings; bsrc = 'OpenStreetMap'; }
+  setProgress(undefined, `${t.id} : orthophoto et relief…`);
+  const ortho = await orthoP; await demP;
+  return { buildings, bsrc, osm, ortho };
+}
+
+// ----------------------------- THREE.JS -----------------------------
+let THREE = null, OrbitControls = null, GLTFExporter = null, Sky = null;
+const R = {};
+let MAT = null, TPL = null;
+async function ensureThree() {
+  if (THREE && R.renderer) return true;
+  try {
+    THREE = await import('three');
+    ({ OrbitControls } = await import('three/addons/controls/OrbitControls.js'));
+    ({ GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js'));
+    ({ Sky } = await import('three/addons/objects/Sky.js'));
+    initScene();
+    return true;
+  } catch (e) {
+    console.error(e);
+    THREE = null;
+    log('Moteur 3D (Three.js) indisponible : ' + e.message, 'err');
+    toast('Impossible de charger le moteur 3D (connexion ?)');
+    return false;
+  }
+}
+function triangulate(outer, holes) {
+  const c = outer.map(p => new THREE.Vector2(p[0], p[1]));
+  const hs = holes.map(h => h.map(p => new THREE.Vector2(p[0], p[1])));
+  return THREE.ShapeUtils.triangulateShape(c, hs);
+}
+function initScene() {
+  const el = $('three');
+  R.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  R.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, IS_SMALL ? 1.5 : 2));
+  R.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  R.renderer.toneMappingExposure = 0.65;
+  R.renderer.shadowMap.enabled = true;
+  R.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  el.appendChild(R.renderer.domElement);
+  R.scene = new THREE.Scene();
+  R.camera = new THREE.PerspectiveCamera(55, 1, 0.5, 150000);
+  R.camera.position.set(-500, 600, 900);
+  R.controls = new OrbitControls(R.camera, R.renderer.domElement);
+  R.controls.enableDamping = true; R.controls.dampingFactor = 0.08;
+  R.controls.maxPolarAngle = Math.PI * 0.495; R.controls.minDistance = 8; R.controls.maxDistance = 20000;
+  R.controls.target.set(0, 35, 0);
+  R.sky = new Sky(); R.sky.scale.setScalar(60000);
+  const u = R.sky.material.uniforms;
+  u.turbidity.value = 4.5; u.rayleigh.value = 1.1; u.mieCoefficient.value = 0.004; u.mieDirectionalG.value = 0.82;
+  R.scene.add(R.sky);
+  R.sunDir = new THREE.Vector3();
+  R.hemi = new THREE.HemisphereLight(0xd6e6ff, 0x8a7a63, 0.5); R.scene.add(R.hemi);
+  R.sun = new THREE.DirectionalLight(0xfff0d8, 2.5);
+  R.sun.castShadow = !(IS_SMALL || IS_TOUCH);
+  R.sun.shadow.mapSize.set(2048, 2048);
+  const sc = R.sun.shadow.camera; sc.near = 10; sc.far = 2400;
+  R.shadowHalf = 0; R.sun.shadow.bias = -0.0004; R.sun.shadow.normalBias = 0.05;
+  R.scene.add(R.sun); R.scene.add(R.sun.target);
+  R.scene.fog = new THREE.Fog(0xcbd6e0, 2000, 12000);
+  R.farGround = new THREE.Mesh(new THREE.PlaneGeometry(120000, 120000), new THREE.MeshStandardMaterial({ color: 0x77725f, roughness: 1 }));
+  R.farGround.rotation.x = -Math.PI / 2; R.farGround.position.y = 15; R.farGround.receiveShadow = false;
+  R.scene.add(R.farGround);
+  R.tilesRoot = new THREE.Group(); R.tilesRoot.name = 'Perpignan_3D'; R.scene.add(R.tilesRoot);
+  R.markersRoot = new THREE.Group(); R.markersRoot.name = 'Marqueurs'; R.scene.add(R.markersRoot);
+  R.beamGeo = new THREE.CylinderGeometry(0.9, 0.9, 40, 10, 1, true);
+  R.ballGeo = new THREE.SphereGeometry(2.6, 16, 12);
+  R.pmrem = new THREE.PMREMGenerator(R.renderer);
+  R.ray = new THREE.Raycaster(); R.down = new THREE.Vector3(0, -1, 0); R.v1 = new THREE.Vector3(); R.look = new THREE.Vector3();
+  makeMaterials();
+  TPL = makeTemplates();
+  setLighting($('lightSelect').value);
+  $('chkShadows').checked = R.sun.castShadow;
+  R.clock = { t: performance.now(), getDelta() { const n = performance.now(), d = (n - this.t) / 1000; this.t = n; return d; } };
+  resizeRenderer();
+  new ResizeObserver(() => resizeRenderer()).observe($('viewport'));
+  R.renderer.setAnimationLoop(loop);
+  updateMarkers3D();
+}
+const LIGHTS = {
+  midi: { el: 64, az: 180, col: 0xfff6e8, int: 2.7, fog: 0xcfdae6, exp: 0.6 },
+  aprem: { el: 36, az: 235, col: 0xffe9cc, int: 2.5, fog: 0xcbd6e0, exp: 0.65 },
+  soir: { el: 8, az: 265, col: 0xffa766, int: 1.9, fog: 0xd8b596, exp: 0.78 },
+};
+function setLighting(name) {
+  const P = LIGHTS[name] || LIGHTS.aprem;
+  R.sunDir.setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - P.el), THREE.MathUtils.degToRad(180 - P.az));
+  R.sky.material.uniforms.sunPosition.value.copy(R.sunDir);
+  R.sun.color.set(P.col); R.sun.intensity = P.int;
+  R.scene.fog.color.set(P.fog);
+  R.renderer.toneMappingExposure = P.exp; $('exposureSlider').value = P.exp;
+  if (R.envRT) R.envRT.dispose();
+  const envScene = new THREE.Scene(); envScene.add(R.sky);
+  R.envRT = R.pmrem.fromScene(envScene);
+  R.scene.add(R.sky);
+  R.scene.environment = R.envRT.texture;
+  if ('environmentIntensity' in R.scene) R.scene.environmentIntensity = 0.5;
+}
+function resizeRenderer() {
+  if (!R.renderer) return;
+  const el = $('viewport'), w = Math.max(1, el.clientWidth), h = Math.max(1, el.clientHeight);
+  R.renderer.setSize(w, h); R.camera.aspect = w / h; R.camera.updateProjectionMatrix();
+}
+function loop() {
+  try { loopInner(); }
+  catch (e) { if (!R.loopErr) { R.loopErr = true; console.error(e); reportError('rendu 3D : ' + e.message); } }
+}
+function loopInner() {
+  const dt = Math.min(R.clock.getDelta(), 0.05);
+  if (st.view !== '3d') return;
+  if (G.active) gameUpdate(dt);
+  else {
+    R.controls.update();
+    const dist = R.camera.position.distanceTo(R.controls.target);
+    R.scene.fog.near = dist * 1.6; R.scene.fog.far = dist * 7 + 2500;
+  }
+  const f = G.active ? G.focus : R.controls.target;
+  const half = G.active ? 170 : clamp(R.camera.position.distanceTo(R.controls.target) * 0.75, 140, 800);
+  if (Math.abs(half - R.shadowHalf) > R.shadowHalf * 0.15) {
+    R.shadowHalf = half; const sc = R.sun.shadow.camera;
+    sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half; sc.updateProjectionMatrix();
+  }
+  R.sun.position.copy(f).addScaledVector(R.sunDir, 1000);
+  R.sun.target.position.copy(f); R.sun.target.updateMatrixWorld();
+  R.renderer.render(R.scene, R.camera);
+}
+
+// ----- Textures procédurales -----
+function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function speckle(ctx, w, h, amt, rng) {
+  const im = ctx.getImageData(0, 0, w, h), d = im.data;
+  for (let i = 0; i < d.length; i += 4) { const n = (rng() - 0.5) * amt; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
+  ctx.putImageData(im, 0, 0);
+}
+function texFrom(c, name) {
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = Math.min(8, R.renderer.capabilities.getMaxAnisotropy()); t.name = name;
+  return t;
+}
+function buildTextures() {
+  const rng = mulberry32(7);
+  const T = {};
+  // Façade résidentielle (1 travée 3,4 m × 1 étage 3 m)
+  let c = mkCanvas(256, 256), x = c.getContext('2d');
+  x.fillStyle = '#f3efe8'; x.fillRect(0, 0, 256, 256); speckle(x, 256, 256, 22, rng);
+  x.fillStyle = 'rgba(90,70,50,0.10)'; x.fillRect(0, 244, 256, 12);
+  { const ww = 70, wh = 128, wx = 93, wy = 52;
+    x.fillStyle = '#7f8f7a'; x.fillRect(wx - 37, wy, 35, wh); x.fillRect(wx + ww + 2, wy, 35, wh);
+    x.fillStyle = 'rgba(0,0,0,0.22)'; for (let y = wy + 4; y < wy + wh; y += 6) { x.fillRect(wx - 37, y, 35, 2); x.fillRect(wx + ww + 2, y, 35, 2); }
+    x.fillStyle = '#ebe5da'; x.fillRect(wx - 6, wy - 6, ww + 12, wh + 12);
+    const g = x.createLinearGradient(0, wy, 0, wy + wh); g.addColorStop(0, '#26313d'); g.addColorStop(1, '#46586a');
+    x.fillStyle = g; x.fillRect(wx, wy, ww, wh);
+    x.fillStyle = 'rgba(255,255,255,0.12)'; x.fillRect(wx + 4, wy + 4, 22, 46);
+    x.fillStyle = '#ebe5da'; x.fillRect(wx + ww / 2 - 2, wy, 4, wh); x.fillRect(wx, wy + 42, ww, 3);
+    x.strokeStyle = '#2a2a2a'; x.lineWidth = 2; x.beginPath(); x.moveTo(wx - 4, wy + 92); x.lineTo(wx + ww + 4, wy + 92); x.stroke();
+    for (let xx = wx; xx <= wx + ww; xx += 7) { x.beginPath(); x.moveTo(xx, wy + 92); x.lineTo(xx, wy + wh); x.stroke(); }
+    x.fillStyle = '#d6cfc2'; x.fillRect(wx - 10, wy + wh + 5, ww + 20, 8); }
+  T.facadeRes = texFrom(c, 'facade_residentielle');
+  // Façade commerce / services
+  c = mkCanvas(256, 256); x = c.getContext('2d');
+  x.fillStyle = '#f1f0ec'; x.fillRect(0, 0, 256, 256); speckle(x, 256, 256, 14, rng);
+  { const g = x.createLinearGradient(0, 40, 0, 200); g.addColorStop(0, '#2b3947'); g.addColorStop(1, '#53687b');
+    x.fillStyle = '#d9dcdf'; x.fillRect(18, 36, 220, 168); x.fillStyle = g; x.fillRect(24, 42, 208, 156);
+    x.fillStyle = '#d9dcdf'; for (const xx of [88, 152]) x.fillRect(xx, 42, 5, 156); x.fillRect(24, 110, 208, 4);
+    x.fillStyle = 'rgba(255,255,255,0.10)'; x.fillRect(30, 48, 50, 60); }
+  T.facadeCom = texFrom(c, 'facade_commerce');
+  // Façade industrielle (bardage)
+  c = mkCanvas(256, 256); x = c.getContext('2d');
+  x.fillStyle = '#f4f5f6'; x.fillRect(0, 0, 256, 256);
+  for (let xx = 0; xx < 256; xx += 16) { x.fillStyle = 'rgba(0,0,0,0.13)'; x.fillRect(xx, 0, 3, 256); x.fillStyle = 'rgba(255,255,255,0.5)'; x.fillRect(xx + 3, 0, 2, 256); }
+  x.fillStyle = '#5b6b78'; x.fillRect(40, 26, 176, 22); speckle(x, 256, 256, 10, rng);
+  T.facadeInd = texFrom(c, 'facade_industrielle');
+  // Monument (pierre / brique du Roussillon)
+  c = mkCanvas(256, 256); x = c.getContext('2d');
+  x.fillStyle = '#8a6a50'; x.fillRect(0, 0, 256, 256);
+  for (let y = 0, r = 0; y < 256; y += 32, r++) {
+    let xx = r % 2 ? -30 : 0;
+    while (xx < 256) { const w = 40 + rng() * 34, t = rng(); x.fillStyle = `rgb(${190 + t * 40},${150 + t * 35},${112 + t * 28})`; x.fillRect(xx + 2, y + 2, w - 3, 28); xx += w; }
+  }
+  speckle(x, 256, 256, 20, rng);
+  T.facadeMon = texFrom(c, 'facade_monument');
+  // Annexe (enduit simple)
+  c = mkCanvas(128, 128); x = c.getContext('2d');
+  x.fillStyle = '#f0ebe2'; x.fillRect(0, 0, 128, 128); speckle(x, 128, 128, 26, rng);
+  T.facadeAnn = texFrom(c, 'facade_annexe');
+  // Tuiles canal (2 m × 2 m)
+  c = mkCanvas(256, 256); x = c.getContext('2d');
+  x.fillStyle = '#9c4a30'; x.fillRect(0, 0, 256, 256);
+  for (let y = 0, r = 0; y < 256; y += 32, r++) for (let xx = r % 2 ? -13 : 0; xx < 256; xx += 26) {
+    const t = rng(); const gr = x.createLinearGradient(xx, 0, xx + 26, 0);
+    gr.addColorStop(0, `rgb(${150 + t * 30},${70 + t * 20},${45 + t * 12})`); gr.addColorStop(0.5, `rgb(${195 + t * 30},${100 + t * 25},${66 + t * 15})`); gr.addColorStop(1, `rgb(${140 + t * 30},${64 + t * 20},${40 + t * 12})`);
+    x.fillStyle = gr; x.fillRect(xx + 1, y, 24, 30); x.fillStyle = 'rgba(0,0,0,0.25)'; x.fillRect(xx + 1, y + 27, 24, 3);
+  }
+  T.roofTiles = texFrom(c, 'toit_tuiles');
+  // Toit terrasse
+  c = mkCanvas(128, 128); x = c.getContext('2d');
+  x.fillStyle = '#b3aea4'; x.fillRect(0, 0, 128, 128); speckle(x, 128, 128, 40, rng);
+  T.roofFlat = texFrom(c, 'toit_terrasse');
+  // Toit industriel
+  c = mkCanvas(128, 128); x = c.getContext('2d');
+  x.fillStyle = '#a2a8ae'; x.fillRect(0, 0, 128, 128);
+  for (let xx = 0; xx < 128; xx += 12) { x.fillStyle = 'rgba(0,0,0,0.15)'; x.fillRect(xx, 0, 2, 128); }
+  T.roofIndus = texFrom(c, 'toit_industriel');
+  // Routes (u = largeur, v = 9 m)
+  const asphalt = (base, amt) => { const cc = mkCanvas(128, 512), xx = cc.getContext('2d'); xx.fillStyle = base; xx.fillRect(0, 0, 128, 512); speckle(xx, 128, 512, amt, rng); return [cc, xx]; };
+  [c, x] = asphalt('#45474b', 26);
+  x.fillStyle = '#e9e7df'; x.fillRect(6, 0, 4, 512); x.fillRect(118, 0, 4, 512); x.fillRect(62, 0, 4, 170);
+  T.roadMajor = texFrom(c, 'route_principale');
+  [c, x] = asphalt('#4d4f52', 24);
+  x.fillStyle = 'rgba(0,0,0,0.18)'; x.fillRect(0, 0, 7, 512); x.fillRect(121, 0, 7, 512);
+  T.roadMinor = texFrom(c, 'rue');
+  // Trottoirs / chemins
+  c = mkCanvas(128, 128); x = c.getContext('2d');
+  x.fillStyle = '#c9bca5'; x.fillRect(0, 0, 128, 128); speckle(x, 128, 128, 18, rng);
+  x.fillStyle = 'rgba(80,60,40,0.25)'; for (let k = 0; k < 128; k += 32) { x.fillRect(k, 0, 2, 128); x.fillRect(0, k, 128, 2); }
+  T.footway = texFrom(c, 'chemin_pieton');
+  // Voie ferrée (u = 3,2 m, v = 1,2 m)
+  c = mkCanvas(128, 128); x = c.getContext('2d');
+  x.fillStyle = '#6f675c'; x.fillRect(0, 0, 128, 128); speckle(x, 128, 128, 50, rng);
+  x.fillStyle = '#4a3a2c'; x.fillRect(18, 22, 92, 16); x.fillRect(18, 86, 92, 16);
+  x.fillStyle = '#b8bcc0'; x.fillRect(33, 0, 5, 128); x.fillRect(90, 0, 5, 128);
+  T.rail = texFrom(c, 'voie_ferree');
+  // Dallage des places (2 m)
+  c = mkCanvas(128, 128); x = c.getContext('2d');
+  x.fillStyle = '#d2c7b4'; x.fillRect(0, 0, 128, 128);
+  for (let y = 0, r = 0; y < 128; y += 16, r++) for (let xx = r % 2 ? -12 : 0; xx < 128; xx += 24) { const t = rng(); x.fillStyle = `rgb(${200 + t * 25},${190 + t * 22},${172 + t * 20})`; x.fillRect(xx + 1, y + 1, 22, 14); }
+  T.paving = texFrom(c, 'dallage');
+  // Herbe (sol sans orthophoto)
+  c = mkCanvas(128, 128); x = c.getContext('2d');
+  x.fillStyle = '#6d7d4a'; x.fillRect(0, 0, 128, 128); speckle(x, 128, 128, 45, rng);
+  T.grass = texFrom(c, 'herbe');
+  return T;
+}
+function makeMaterials() {
+  const T = buildTextures();
+  const std = o => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.9, metalness: 0 }, o));
+  MAT = {};
+  PAL.residentiel.forEach((col, i) => { MAT['mur_residentiel_' + i] = std({ map: T.facadeRes, color: col, name: 'Facade_Residentiel_' + i }); });
+  PAL.commerce.forEach((col, i) => { MAT['mur_commerce_' + i] = std({ map: T.facadeCom, color: col, roughness: 0.6, name: 'Facade_Commerce_' + i }); });
+  MAT.mur_industriel_0 = std({ map: T.facadeInd, color: '#c4c8cc', roughness: 0.6, metalness: 0.15, name: 'Facade_Industrielle' });
+  MAT.mur_monument_0 = std({ map: T.facadeMon, color: '#ffffff', name: 'Facade_Monument' });
+  MAT.mur_annexe_0 = std({ map: T.facadeAnn, color: '#e6d9c4', name: 'Facade_Annexe' });
+  MAT.toit_tuiles = std({ map: T.roofTiles, roughness: 0.85, name: 'Toit_Tuiles' });
+  MAT.toit_plat = std({ map: T.roofFlat, roughness: 0.95, name: 'Toit_Terrasse' });
+  MAT.toit_indus = std({ map: T.roofIndus, roughness: 0.55, metalness: 0.25, name: 'Toit_Industriel' });
+  const PO = { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 }; // évite le scintillement route/sol au loin
+  MAT.route_principale = std(Object.assign({ map: T.roadMajor, roughness: 0.92, side: THREE.DoubleSide, name: 'Route_Principale' }, PO));
+  MAT.rue = std(Object.assign({ map: T.roadMinor, roughness: 0.92, side: THREE.DoubleSide, name: 'Rue' }, PO));
+  MAT.pietons = std(Object.assign({ map: T.footway, roughness: 0.9, side: THREE.DoubleSide, name: 'Chemin_Pieton' }, PO));
+  MAT.voie_ferree = std(Object.assign({ map: T.rail, roughness: 0.9, side: THREE.DoubleSide, name: 'Voie_Ferree' }, PO));
+  MAT.dalle_pietonne = std(Object.assign({ map: T.paving, roughness: 0.85, name: 'Dallage' }, PO));
+  MAT.eau = std(Object.assign({ color: '#3f7189', roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.78, name: 'Eau' }, PO));
+  MAT.tronc = std({ color: '#5b4636', name: 'Tronc' });
+  ['#4f6b35', '#5d7a3c', '#435e33'].forEach((col, i) => { MAT['feuillage_' + i] = std({ color: col, roughness: 0.95, name: 'Feuillage_' + i }); });
+  MAT.sol_defaut = std({ map: T.grass, roughness: 1, name: 'Sol_Herbe' });
+  MAT.defaut = std({ color: '#bbbbbb', name: 'Defaut' });
+}
+function makeTemplates() {
+  const crown = new THREE.IcosahedronGeometry(1, 1);
+  const trunk = new THREE.CylinderGeometry(0.65, 1, 1, 6, 1, true); trunk.translate(0, 0.5, 0);
+  const P = crown.attributes.position.array, map = new Map(), pos = [], nrm = [], idx = [];
+  const jr = mulberry32(11);
+  for (let i = 0; i < P.length / 3; i++) {
+    const k = P[i * 3].toFixed(4) + ',' + P[i * 3 + 1].toFixed(4) + ',' + P[i * 3 + 2].toFixed(4);
+    let v = map.get(k);
+    if (v === undefined) {
+      v = pos.length / 3; map.set(k, v);
+      const l = Math.hypot(P[i * 3], P[i * 3 + 1], P[i * 3 + 2]) || 1, s = 0.86 + jr() * 0.28;
+      pos.push(P[i * 3] * s, P[i * 3 + 1] * s, P[i * 3 + 2] * s); nrm.push(P[i * 3] / l, P[i * 3 + 1] / l, P[i * 3 + 2] / l);
+    }
+    idx.push(v);
+  }
+  const tp = trunk.attributes.position.array, tn = trunk.attributes.normal.array;
+  const tpl = { crown: { pos, nrm, idx }, trunk: { pos: Array.from(tp), nrm: Array.from(tn), idx: Array.from(trunk.index.array) } };
+  crown.dispose(); trunk.dispose();
+  return tpl;
+}
+const MESH_NAMES = {
+  sol: 'Sol_Orthophoto', toit_ortho: 'Toits_Photo', toit_tuiles: 'Toits_Tuiles', toit_plat: 'Toits_Terrasses', toit_indus: 'Toits_Industriels',
+  route_principale: 'Routes_Principales', rue: 'Rues', pietons: 'Chemins_Pietons', voie_ferree: 'Voies_Ferrees',
+  dalle_pietonne: 'Places_Pietonnes', eau: 'Eau', tronc: 'Arbres_Troncs',
+};
+function meshName(key) {
+  if (MESH_NAMES[key]) return MESH_NAMES[key];
+  if (key.startsWith('mur_')) return 'Facades_' + key.slice(4);
+  if (key.startsWith('feuillage_')) return 'Arbres_Feuillage_' + key.slice(10);
+  return key;
+}
+function meshFromBuf(buf, mat, name) {
+  const a = buf.arrays(), g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(a.position, 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(a.normal, 3));
+  g.setAttribute('uv', new THREE.BufferAttribute(a.uv, 2));
+  g.setIndex(new THREE.BufferAttribute(a.index, 1));
+  g.computeBoundingBox(); g.computeBoundingSphere();
+  const m = new THREE.Mesh(g, mat); m.name = name;
+  return m;
+}
+
+// ----- Tuiles 3D -----
+function buildRecord(t, data, opts) {
+  const o = Object.assign({}, opts, { hasOrtho: !!data.ortho });
+  const res = buildTileGeometry(t, data, o, ground, triangulate, TPL);
+  const group = new THREE.Group(); group.name = 'Perpignan_' + t.id;
+  const r = tileRect(t.i, t.j, t.S), gb = tileBoundsGeo(t.i, t.j, t.S);
+  const sol = data.ortho ? data.ortho.source : 'procédural';
+  group.userData = { tuile: t.id, tailleM: t.S, x0: r.x0, z0: r.z0, x1: r.x1, z1: r.z1, nord: +gb.north.toFixed(7), sud: +gb.south.toFixed(7), ouest: +gb.west.toFixed(7), est: +gb.east.toFixed(7), batiments: data.bsrc || '', sol };
+  let orthoTex = null, solMat = MAT.sol_defaut, toitMat = null; const own = [];
+  if (data.ortho) {
+    orthoTex = new THREE.CanvasTexture(data.ortho.canvas);
+    orthoTex.colorSpace = THREE.SRGBColorSpace; orthoTex.wrapS = orthoTex.wrapT = THREE.ClampToEdgeWrapping;
+    orthoTex.anisotropy = R.renderer.capabilities.getMaxAnisotropy(); orthoTex.userData.mimeType = 'image/jpeg'; orthoTex.name = 'ortho_' + t.id;
+    solMat = new THREE.MeshStandardMaterial({ map: orthoTex, roughness: 0.96, metalness: 0, name: 'Sol_' + t.id });
+    toitMat = new THREE.MeshStandardMaterial({ map: orthoTex, roughness: 0.82, metalness: 0, name: 'Toits_' + t.id });
+    own.push(solMat, toitMat);
+  }
+  const groundMeshes = [];
+  for (const [key, buf] of res.bufs.map) {
+    if (!buf.idx.length) continue;
+    const mat = key === 'sol' ? solMat : key === 'toit_ortho' ? (toitMat || MAT.toit_plat) : (MAT[key] || MAT.defaut);
+    const m = meshFromBuf(buf, mat, meshName(key));
+    const isGround = key === 'sol' || ROAD_KEYS.has(key) || key === 'dalle_pietonne';
+    m.receiveShadow = true; m.castShadow = !isGround && key !== 'eau';
+    if (isGround) groundMeshes.push(m);
+    if (key === 'eau') m.renderOrder = 1;
+    group.add(m);
+  }
+  return {
+    id: t.id, i: t.i, j: t.j, S: t.S, group, groundMeshes, colliders: res.colliders, roads: res.roads, rails: res.rails,
+    stats: res.stats, pois: (data.osm && data.osm.pois) || [], orthoTex, own, bsrc: data.bsrc, sol,
+  };
+}
+function disposeRecord(rec) {
+  rec.group.traverse(o => { if (o.isMesh) o.geometry.dispose(); });
+  rec.own.forEach(m => m.dispose());
+  if (rec.orthoTex) rec.orthoTex.dispose();
+}
+const COL = new SpatialGrid(16);
+const RIDX = new SpatialGrid(40);
+function indexRecord(rec) {
+  for (const c of rec.colliders) { const it = { ring: c.ring, bb: ringBBox(c.ring) }; COL.insertBBox(it.bb, it); }
+  for (const r of rec.roads) for (let k = 0; k < r.points.length - 1; k++) {
+    const a = r.points[k], b = r.points[k + 1];
+    RIDX.insertBBox({ minX: Math.min(a[0], b[0]), maxX: Math.max(a[0], b[0]), minZ: Math.min(a[2], b[2]), maxZ: Math.max(a[2], b[2]) }, { ax: a[0], az: a[2], bx: b[0], bz: b[2], road: r });
+  }
+}
+function rebuildIndexes() { COL.m.clear(); RIDX.m.clear(); for (const rec of st.generated.values()) indexRecord(rec); }
+function colHit(x, z) {
+  for (const it of COL.query(x, z)) {
+    const b = it.bb;
+    if (x < b.minX || x > b.maxX || z < b.minZ || z > b.maxZ) continue;
+    if (pointInRing(x, z, it.ring)) return true;
+  }
+  return false;
+}
+function tileRecAt(x, z) { return st.generated.get(tileId(Math.floor(x / st.S), Math.floor(z / st.S))); }
+function raycastGround(x, z, yFrom) {
+  const rec = tileRecAt(x, z); if (!rec || !R.ray) return null;
+  R.ray.set(R.v1.set(x, yFrom, z), R.down); R.ray.far = 8000;
+  const hits = R.ray.intersectObjects(rec.groundMeshes, false);
+  return hits.length ? hits[0].point.y : null;
+}
+function addRecord(rec) {
+  if (st.generated.has(rec.id)) removeRecord(rec.id, false);
+  R.tilesRoot.add(rec.group);
+  st.generated.set(rec.id, rec);
+  indexRecord(rec);
+  afterTilesChanged();
+}
+function removeRecord(id, refresh = true) {
+  const rec = st.generated.get(id); if (!rec) return;
+  R.tilesRoot.remove(rec.group); disposeRecord(rec); st.generated.delete(id);
+  if (refresh) { rebuildIndexes(); afterTilesChanged(); } else rebuildIndexes();
+}
+function clearAllTiles() { for (const id of [...st.generated.keys()]) removeRecord(id, false); rebuildIndexes(); afterTilesChanged(); }
+function afterTilesChanged() {
+  let minY = Infinity;
+  for (const rec of st.generated.values()) { const s = rec.group.getObjectByName('Sol_Orthophoto'); if (s && s.geometry.boundingBox) minY = Math.min(minY, s.geometry.boundingBox.min.y); }
+  if (R.farGround) R.farGround.position.y = Number.isFinite(minY) ? minY - 2.5 : 15;
+  if (!st.generated.size) st.reliefUsed = null;
+  if (!st.busy) setStatus(st.generated.size ? `Perpignan — ${st.generated.size} tuile(s) en 3D` : 'Perpignan — prêt');
+  updateStatsUI(); refreshGrid(); updateMarkers3D(); updatePrompt();
+  $('empty3d').hidden = st.view !== '3d' || st.generated.size > 0;
+}
+function updateStatsUI() {
+  let b = 0, tr = 0, km = 0, ar = 0;
+  for (const r of st.generated.values()) { b += r.stats.batiments; tr += r.stats.triangles; km += r.stats.routesKm; ar += r.stats.arbres; }
+  $('sBld').textContent = fmt(b); $('sTri').textContent = tr > 1e6 ? (tr / 1e6).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' M' : fmt(tr);
+  $('sRoad').textContent = km.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' km'; $('sTree').textContent = fmt(ar);
+}
+function frameZone() {
+  if (!st.generated.size || !R.camera) return;
+  let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+  for (const r of st.generated.values()) { const t = tileRect(r.i, r.j, r.S); x0 = Math.min(x0, t.x0); z0 = Math.min(z0, t.z0); x1 = Math.max(x1, t.x1); z1 = Math.max(z1, t.z1); }
+  const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, size = Math.max(x1 - x0, z1 - z0);
+  const cy = raycastGround(cx, cz, 9000) ?? (st.reliefUsed ? st.lastAlt : 0);
+  const d = size * 0.75 + 120;
+  R.controls.target.set(cx, cy, cz);
+  R.camera.position.set(cx - d * 0.45, cy + d * 0.6, cz + d * 0.75);
+  R.controls.update();
+}
+function focus3D(x, z) {
+  if (!R.camera) return;
+  const y = raycastGround(x, z, 9000) ?? markerGroundY(x, z);
+  const off = R.camera.position.clone().sub(R.controls.target);
+  if (off.length() > 600) off.setLength(450);
+  R.controls.target.set(x, y, z); R.camera.position.set(x + off.x, y + off.y, z + off.z); R.controls.update();
+}
+function markerGroundY(x, z) {
+  const y = raycastGround(x, z, 9000);
+  if (y !== null) return y;
+  if (st.reliefUsed === false) return 0;
+  return DEM.tiles.size ? groundRelief(x, z) : st.lastAlt;
+}
+function updateMarkers3D() {
+  if (!R.markersRoot) return;
+  for (const o of [...R.markersRoot.children]) { o.material.dispose(); R.markersRoot.remove(o); }
+  for (const m of st.markers) {
+    const [x, z] = geoToLocal(m.lat, m.lng), y = markerGroundY(x, z), col = MARKER_META[m.type].color;
+    const beam = new THREE.Mesh(R.beamGeo, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.45, depthWrite: false }));
+    beam.position.set(x, y + 20, z);
+    const ball = new THREE.Mesh(R.ballGeo, new THREE.MeshBasicMaterial({ color: col }));
+    ball.position.set(x, y + 42, z);
+    R.markersRoot.add(beam, ball);
+  }
+}
+
+// ----------------------------- MODE JEU -----------------------------
+const G = {
+  active: false, mode: 'car', car: { x: 0, y: 0, z: 0, h: 0, v: 0, pitch: 0 }, ped: { x: 0, y: 0, z: 0, h: 0, v: 0 },
+  keys: {}, joy: { x: 0, y: 0 }, brakeBtn: false, turboBtn: false, cam: 0, focus: null, hudT: 0, saved: null,
+  done: new Set(), carMesh: null, pedMesh: null,
+};
+function makeCarMesh() {
+  const g = new THREE.Group(); g.name = 'Voiture';
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.62, 4.3), new THREE.MeshStandardMaterial({ color: 0xc8102e, roughness: 0.35, metalness: 0.5 }));
+  body.position.y = 0.66; g.add(body);
+  const cab = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.55, 2.1), new THREE.MeshStandardMaterial({ color: 0x1b2430, roughness: 0.15, metalness: 0.6 }));
+  cab.position.set(0, 1.24, 0.25); g.add(cab);
+  const wg = new THREE.CylinderGeometry(0.36, 0.36, 0.28, 14); wg.rotateZ(Math.PI / 2);
+  const wm = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
+  for (const [x, z] of [[-0.92, -1.35], [0.92, -1.35], [-0.92, 1.35], [0.92, 1.35]]) { const w = new THREE.Mesh(wg, wm); w.position.set(x, 0.36, z); g.add(w); }
+  const lm = new THREE.MeshBasicMaterial({ color: 0xfff7d6 }), tm = new THREE.MeshBasicMaterial({ color: 0xff2020 });
+  for (const x of [-0.6, 0.6]) {
+    const a = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.14, 0.05), lm); a.position.set(x, 0.76, -2.16); g.add(a);
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.05), tm); b.position.set(x, 0.78, 2.16); g.add(b);
+  }
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  g.rotation.order = 'YXZ';
+  return g;
+}
+function makePedMesh() {
+  const g = new THREE.Group(); g.name = 'Pieton';
+  const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 1.0, 6, 12), new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.7 }));
+  b.position.y = 0.92; b.castShadow = true; g.add(b);
+  const h = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), new THREE.MeshStandardMaterial({ color: 0xe0b48c, roughness: 0.8 }));
+  h.position.y = 1.72; h.castShadow = true; g.add(h);
+  return g;
+}
+function blocked(x, z, h, hw, hl) {
+  const fx = Math.sin(h), fz = -Math.cos(h), rx = Math.cos(h), rz = Math.sin(h);
+  for (const a of [hl, 0, -hl]) for (const b of [-hw, 0, hw]) {
+    const px = x + fx * a + rx * b, pz = z + fz * a + rz * b;
+    if (!tileRecAt(px, pz) || colHit(px, pz)) return true;
+  }
+  return false;
+}
+function findSpawn() {
+  const sp = st.markers.find(m => m.type === 'spawn');
+  let cx, cz;
+  if (sp) [cx, cz] = geoToLocal(sp.lat, sp.lng);
+  if (!sp || !tileRecAt(cx, cz)) { const rec = st.generated.values().next().value, r = tileRect(rec.i, rec.j, rec.S); cx = (r.x0 + r.x1) / 2; cz = (r.z0 + r.z1) / 2; }
+  let best = null;
+  for (const rec of st.generated.values()) for (const rd of rec.roads) {
+    if (rd.categorie === 'foot') continue;
+    for (let k = 0; k < rd.points.length - 1; k++) {
+      const a = rd.points[k], b = rd.points[k + 1], dx = b[0] - a[0], dz = b[2] - a[2], L2 = dx * dx + dz * dz;
+      if (L2 < 4) continue;
+      const t = clamp(((cx - a[0]) * dx + (cz - a[2]) * dz) / L2, 0.15, 0.85);
+      const px = a[0] + dx * t, pz = a[2] + dz * t, d = Math.hypot(px - cx, pz - cz);
+      if ((!best || d < best.d) && !blocked(px, pz, Math.atan2(dx, -dz), 0.95, 2.2)) best = { d, x: px, z: pz, h: Math.atan2(dx, -dz) };
+    }
+  }
+  return best || { x: cx, z: cz, h: 0 };
+}
+async function startGame() {
+  if (!st.generated.size) { toast('Générez d’abord au moins une tuile.'); return; }
+  if (!(await ensureThree())) return;
+  await setView('3d');
+  if (!G.carMesh) { G.carMesh = makeCarMesh(); G.pedMesh = makePedMesh(); R.scene.add(G.carMesh, G.pedMesh); }
+  const sp = findSpawn();
+  Object.assign(G.car, { x: sp.x, z: sp.z, h: sp.h, v: 0, pitch: 0 });
+  G.car.y = raycastGround(sp.x, sp.z, 9000) ?? ground(sp.x, sp.z);
+  G.mode = 'car'; G.cam = 0; G.carMesh.visible = true; G.pedMesh.visible = false;
+  G.saved = { pos: R.camera.position.clone(), target: R.controls.target.clone() };
+  R.controls.enabled = false; R.camera.near = 0.3; R.camera.updateProjectionMatrix();
+  R.camera.position.set(sp.x - Math.sin(sp.h) * 10, G.car.y + 5, sp.z + Math.cos(sp.h) * 10);
+  G.focus = new THREE.Vector3(sp.x, G.car.y, sp.z);
+  R.scene.fog.near = 350; R.scene.fog.far = 2600;
+  G.keys = {}; G.joy.x = G.joy.y = 0; G.done.clear();
+  hideBoot();
+  document.body.classList.add('playing');
+  $('gameHud').hidden = false; $('hud3d').hidden = true; $('empty3d').hidden = true;
+  $('gJoy').hidden = !IS_TOUCH; $('gBtns').hidden = !IS_TOUCH;
+  G.active = true; updateModeLabel();
+  requestAnimationFrame(resizeRenderer);
+  toast('Bonne route dans Perpignan !');
+}
+function stopGame() {
+  if (!G.active) return;
+  G.active = false;
+  document.body.classList.remove('playing');
+  $('gameHud').hidden = true; $('hud3d').hidden = st.view !== '3d';
+  R.controls.enabled = true; R.camera.near = 0.5; R.camera.updateProjectionMatrix();
+  if (G.saved) { R.camera.position.copy(G.saved.pos); R.controls.target.copy(G.saved.target); }
+  G.carMesh.visible = false; G.pedMesh.visible = false;
+  requestAnimationFrame(resizeRenderer);
+}
+function updateModeLabel() {
+  $('gMode').textContent = G.mode === 'car' ? '🚗 Voiture — F pour descendre' : '🚶 À pied — F près de la voiture';
+  $('gSwitch').textContent = G.mode === 'car' ? '🚶 Pied' : '🚗 Auto';
+}
+function toggleMode() {
+  if (G.mode === 'car') {
+    const c = G.car, rx = Math.cos(c.h), rz = Math.sin(c.h);
+    let px = c.x - rx * 2.2, pz = c.z - rz * 2.2;
+    if (blocked(px, pz, c.h, 0.3, 0.3)) { px = c.x + rx * 2.2; pz = c.z + rz * 2.2; }
+    if (blocked(px, pz, c.h, 0.3, 0.3)) { px = c.x; pz = c.z; }
+    Object.assign(G.ped, { x: px, z: pz, y: c.y, h: c.h, v: 0 });
+    c.v = 0; G.mode = 'ped'; G.pedMesh.visible = true;
+  } else {
+    const d = Math.hypot(G.ped.x - G.car.x, G.ped.z - G.car.z);
+    if (d > 6) { toast(`Rejoignez la voiture (${Math.round(d)} m) pour la reprendre`); return; }
+    G.mode = 'car'; G.pedMesh.visible = false;
+  }
+  updateModeLabel();
+}
+function gameUpdate(dt) {
+  const k = G.keys;
+  const up = k.KeyW || k.ArrowUp, dn = k.KeyS || k.ArrowDown, lf = k.KeyA || k.ArrowLeft, rt = k.KeyD || k.ArrowRight;
+  const thr = up ? 1 : (G.joy.y > 0.15 ? G.joy.y : 0), brk = dn ? 1 : (G.joy.y < -0.15 ? -G.joy.y : 0);
+  const steer = clamp((rt ? 1 : 0) - (lf ? 1 : 0) + (Math.abs(G.joy.x) > 0.1 ? G.joy.x : 0), -1, 1);
+  const turbo = k.ShiftLeft || k.ShiftRight || G.turboBtn, hand = k.Space || G.brakeBtn;
+  if (G.mode === 'car') updateCar(dt, thr, brk, steer, turbo, hand); else updatePed(dt, thr, brk, steer, turbo);
+  updateCamera(dt);
+  G.hudT -= dt;
+  if (G.hudT <= 0) { G.hudT = 0.12; updateHud(); }
+}
+function updateCar(dt, thr, brk, steer, turbo, hand) {
+  const c = G.car, vmax = turbo ? 50 : 33;
+  if (thr > 0.05) { if (c.v < -0.3) c.v += 14 * thr * dt; else c.v += (turbo ? 9 : 5.5) * thr * dt * Math.max(0, 1 - c.v / vmax); }
+  if (brk > 0.05) { if (c.v > 0.3) c.v -= 15 * brk * dt; else c.v -= 4 * brk * dt; }
+  if (thr <= 0.05 && brk <= 0.05) c.v -= Math.sign(c.v) * Math.min(Math.abs(c.v), (0.9 + 0.012 * c.v * c.v) * dt);
+  if (hand) c.v -= Math.sign(c.v) * Math.min(Math.abs(c.v), 11 * dt);
+  c.v = clamp(c.v, -9, vmax);
+  const sp = Math.abs(c.v);
+  c.h += steer * (hand ? 2.3 : 1.6) * Math.min(1, sp / 4) / (1 + sp / 30) * (c.v < 0 ? -1 : 1) * dt;
+  if (sp > 0.01) {
+    const nx = c.x + Math.sin(c.h) * c.v * dt, nz = c.z - Math.cos(c.h) * c.v * dt;
+    const stuck = blocked(c.x, c.z, c.h, 0.95, 2.2);
+    if (stuck || !blocked(nx, nz, c.h, 0.95, 2.2)) { c.x = nx; c.z = nz; }
+    else if (!blocked(nx, c.z, c.h, 0.95, 2.2)) { c.x = nx; c.v *= 0.92; }
+    else if (!blocked(c.x, nz, c.h, 0.95, 2.2)) { c.z = nz; c.v *= 0.92; }
+    else c.v = -c.v * 0.25;
+  }
+  const y = raycastGround(c.x, c.z, c.y + 4);
+  if (y !== null) c.y += (y - c.y) * Math.min(1, dt * 14);
+  const fx = Math.sin(c.h), fz = -Math.cos(c.h);
+  const yF = raycastGround(c.x + fx * 1.8, c.z + fz * 1.8, c.y + 4), yB = raycastGround(c.x - fx * 1.8, c.z - fz * 1.8, c.y + 4);
+  const tp = yF !== null && yB !== null ? Math.atan2(yF - yB, 3.6) : 0;
+  c.pitch += (tp - c.pitch) * Math.min(1, dt * 8);
+  G.carMesh.position.set(c.x, c.y, c.z); G.carMesh.rotation.set(c.pitch, -c.h, 0);
+  G.focus.set(c.x, c.y, c.z);
+}
+function updatePed(dt, thr, brk, steer, turbo) {
+  const p = G.ped, v = (thr - brk) * (turbo ? 6 : 2.2);
+  p.h += steer * 2.6 * dt;
+  if (Math.abs(v) > 0.01) {
+    const nx = p.x + Math.sin(p.h) * v * dt, nz = p.z - Math.cos(p.h) * v * dt;
+    if (blocked(p.x, p.z, p.h, 0.3, 0.3) || !blocked(nx, nz, p.h, 0.3, 0.3)) { p.x = nx; p.z = nz; }
+    else if (!blocked(nx, p.z, p.h, 0.3, 0.3)) p.x = nx;
+    else if (!blocked(p.x, nz, p.h, 0.3, 0.3)) p.z = nz;
+  }
+  p.v = v;
+  const y = raycastGround(p.x, p.z, p.y + 2);
+  if (y !== null) p.y += (y - p.y) * Math.min(1, dt * 16);
+  G.pedMesh.position.set(p.x, p.y, p.z); G.pedMesh.rotation.y = -p.h;
+  G.focus.set(p.x, p.y, p.z);
+}
+function updateCamera(dt) {
+  const isCar = G.mode === 'car', o = isCar ? G.car : G.ped;
+  const fx = Math.sin(o.h), fz = -Math.cos(o.h);
+  if (G.cam === 2) {
+    R.camera.position.set(o.x + fx * 0.3, o.y + (isCar ? 1.35 : 1.65), o.z + fz * 0.3);
+  } else {
+    const cfg = isCar ? [[10, 4.2], [6, 2.4]][G.cam] : [[4.8, 2.1], [3, 1.7]][G.cam];
+    let back = cfg[0];
+    while (back > 2 && colHit(o.x - fx * back, o.z - fz * back)) back -= 0.75;
+    const px = o.x - fx * back, pz = o.z - fz * back;
+    const py = Math.max(o.y + cfg[1], (st.reliefUsed ? groundRelief(px, pz) : 0) + 1.2);
+    const k = 1 - Math.exp(-dt * 7), p = R.camera.position;
+    p.x += (px - p.x) * k; p.y += (py - p.y) * k; p.z += (pz - p.z) * k;
+  }
+  R.look.set(o.x + fx * 4, o.y + (isCar ? 1.2 : 1.5), o.z + fz * 4);
+  R.camera.lookAt(R.look);
+}
+function showMission(text) {
+  const el = $('gMission'); el.textContent = text; el.classList.add('show');
+  clearTimeout(el._tm); el._tm = setTimeout(() => el.classList.remove('show'), 2600);
+}
+function updateHud() {
+  const o = G.mode === 'car' ? G.car : G.ped;
+  $('gSpeed').textContent = Math.round(Math.abs(o.v) * 3.6);
+  let best = null;
+  for (const s of RIDX.queryRadius(o.x, o.z, 25)) {
+    if (!s.road.nom) continue;
+    const d = distPointSeg(o.x, o.z, s.ax, s.az, s.bx, s.bz);
+    if (d < 25 && (!best || d < best.d)) best = { d, n: s.road.nom };
+  }
+  $('gStreet').textContent = best ? best.n : '—';
+  drawMinimap(o.x, o.z, o.h);
+  for (const m of st.markers) {
+    if (G.done.has(m.id) || !['mission', 'checkpoint', 'landmark', 'vehicle'].includes(m.type)) continue;
+    const [x, z] = geoToLocal(m.lat, m.lng);
+    if (Math.hypot(x - o.x, z - o.z) < 15) { G.done.add(m.id); showMission(`${MARKER_META[m.type].icon} ${m.label}`); }
+  }
+}
+function drawMinimap(px, pz, h) {
+  const c = $('minimap'), ctx = c.getContext('2d'), W = c.width, half = W / 2, radius = 230, sc = half / radius;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, W);
+  ctx.save(); ctx.beginPath(); ctx.arc(half, half, half - 1, 0, Math.PI * 2); ctx.clip();
+  ctx.fillStyle = 'rgba(12,17,28,0.92)'; ctx.fillRect(0, 0, W, W);
+  ctx.translate(half, half); ctx.rotate(-h);
+  ctx.fillStyle = 'rgba(148,163,184,0.28)';
+  for (const it of COL.queryRadius(px, pz, radius)) {
+    const r = it.ring; ctx.beginPath(); ctx.moveTo((r[0][0] - px) * sc, (r[0][1] - pz) * sc);
+    for (let k = 1; k < r.length; k++) ctx.lineTo((r[k][0] - px) * sc, (r[k][1] - pz) * sc);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.lineCap = 'round';
+  for (const s of RIDX.queryRadius(px, pz, radius)) {
+    const cat = s.road.categorie;
+    ctx.strokeStyle = cat === 'major' ? '#f4c27a' : cat === 'foot' ? 'rgba(203,213,225,0.4)' : '#e2e8f0';
+    ctx.lineWidth = Math.max(1.5, s.road.largeur * sc);
+    ctx.beginPath(); ctx.moveTo((s.ax - px) * sc, (s.az - pz) * sc); ctx.lineTo((s.bx - px) * sc, (s.bz - pz) * sc); ctx.stroke();
+  }
+  for (const m of st.markers) {
+    const [x, z] = geoToLocal(m.lat, m.lng); let dx = (x - px) * sc, dz = (z - pz) * sc; const l = Math.hypot(dx, dz);
+    if (l > half - 12) { dx *= (half - 12) / l; dz *= (half - 12) / l; }
+    ctx.fillStyle = MARKER_META[m.type].color; ctx.beginPath(); ctx.arc(dx, dz, 8, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = '#ef4444'; ctx.font = 'bold 24px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('N', 0, -half + 20);
+  ctx.restore();
+  ctx.fillStyle = '#38bdf8'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(half, half - 16); ctx.lineTo(half - 11, half + 12); ctx.lineTo(half, half + 6); ctx.lineTo(half + 11, half + 12); ctx.closePath(); ctx.fill(); ctx.stroke();
+}
+function bindGameInputs() {
+  window.addEventListener('keydown', e => {
+    if (!G.active) return;
+    if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+    G.keys[e.code] = true;
+    if (!e.repeat) {
+      if (e.code === 'KeyF') toggleMode();
+      if (e.code === 'KeyC') G.cam = (G.cam + 1) % 3;
+      if (e.code === 'Escape') stopGame();
+    }
+    if (/^Arrow|^Space$/.test(e.code)) e.preventDefault();
+  });
+  window.addEventListener('keyup', e => { G.keys[e.code] = false; });
+  window.addEventListener('blur', () => { G.keys = {}; });
+  const joy = $('gJoy'), knob = $('gKnob'); let jid = null;
+  const moveJoy = e => {
+    const r = joy.getBoundingClientRect(); let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    const RR = r.width / 2, l = Math.hypot(dx, dy); if (l > RR) { dx *= RR / l; dy *= RR / l; }
+    G.joy.x = dx / RR; G.joy.y = -dy / RR;
+    knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  };
+  const endJoy = e => { if (e.pointerId !== jid) return; jid = null; G.joy.x = 0; G.joy.y = 0; knob.style.transform = 'translate(-50%, -50%)'; };
+  joy.addEventListener('pointerdown', e => { jid = e.pointerId; try { joy.setPointerCapture(e.pointerId); } catch (err) { /* pointeur synthétique */ } moveJoy(e); e.preventDefault(); });
+  joy.addEventListener('pointermove', e => { if (e.pointerId === jid) moveJoy(e); });
+  joy.addEventListener('pointerup', endJoy); joy.addEventListener('pointercancel', endJoy);
+  const hold = (id, prop) => {
+    const b = $(id);
+    const on = e => { G[prop] = true; b.classList.add('hold'); e.preventDefault(); };
+    const off = () => { G[prop] = false; b.classList.remove('hold'); };
+    b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointerleave', off); b.addEventListener('pointercancel', off);
+  };
+  hold('gBrake', 'brakeBtn'); hold('gTurbo', 'turboBtn');
+  $('gSwitch').onclick = toggleMode;
+  $('gCam').onclick = () => { G.cam = (G.cam + 1) % 3; };
+  $('gQuit').onclick = stopGame;
+}
+
+// ----------------------------- CARTE -----------------------------
+let map = null, mapMarkers = [];
+const IGN_WMTS = (layer, f) => `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${layer}&STYLE=normal&TILEMATRIXSET=PM&FORMAT=${f}&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}`;
+function mapStyle(mode) {
+  if (mode === 'vector') return 'https://tiles.openfreemap.org/styles/liberty';
+  const plan = mode === 'plan';
+  return {
+    version: 8,
+    sources: {
+      base: { type: 'raster', tiles: [plan ? IGN_WMTS('GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2', 'image/png') : IGN_WMTS('ORTHOIMAGERY.ORTHOPHOTOS', 'image/jpeg')], tileSize: 256, maxzoom: plan ? 18 : 19, attribution: '© IGN Géoplateforme' },
+      omt: { type: 'vector', url: 'https://tiles.openfreemap.org/planet', attribution: '© OpenStreetMap' },
+    },
+    layers: [
+      { id: 'bg', type: 'background', paint: { 'background-color': '#0b0f17' } },
+      { id: 'base', type: 'raster', source: 'base' },
+      { id: 'b3d', type: 'fill-extrusion', source: 'omt', 'source-layer': 'building', minzoom: 14,
+        paint: { 'fill-extrusion-color': '#e7dac6', 'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 8], 'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0], 'fill-extrusion-opacity': 0.5 } },
+    ],
+  };
+}
+function empriseRange() {
+  const half = st.empriseKm * 500, S = st.S;
+  return { i0: Math.floor(-half / S), i1: Math.ceil(half / S) - 1, j0: Math.floor(-half / S), j1: Math.ceil(half / S) - 1 };
+}
+function inEmprise(i, j) { const e = empriseRange(); return i >= e.i0 && i <= e.i1 && j >= e.j0 && j <= e.j1; }
+function empriseTiles() {
+  const e = empriseRange(), out = [];
+  for (let j = e.j0; j <= e.j1; j++) for (let i = e.i0; i <= e.i1; i++) out.push({ id: tileId(i, j), i, j });
+  return out;
+}
+function gridGeoJSON() {
+  const list = empriseTiles(), seen = new Set(list.map(t => t.id));
+  for (const id of [...st.selected, ...st.generated.keys()]) if (!seen.has(id)) { const t = parseTileId(id, st.S); if (t) { list.push(t); seen.add(id); } }
+  return {
+    type: 'FeatureCollection',
+    features: list.map(t => {
+      const g = tileBoundsGeo(t.i, t.j, st.S);
+      const s = st.loading.has(t.id) ? 3 : st.generated.has(t.id) ? 2 : st.selected.has(t.id) ? 1 : 0;
+      return { type: 'Feature', properties: { id: t.id, s }, geometry: { type: 'Polygon', coordinates: [[[g.west, g.north], [g.east, g.north], [g.east, g.south], [g.west, g.south], [g.west, g.north]]] } };
+    }),
+  };
+}
+function ensureGridLayers() {
+  if (!map) return;
+  if (!map.getSource('tiles-grid')) map.addSource('tiles-grid', { type: 'geojson', data: gridGeoJSON() });
+  const vis = st.showGrid ? 'visible' : 'none';
+  if (!map.getLayer('tiles-fill')) map.addLayer({ id: 'tiles-fill', type: 'fill', source: 'tiles-grid', layout: { visibility: vis },
+    paint: { 'fill-color': ['match', ['get', 's'], 1, '#3b82f6', 2, '#10b981', 3, '#f59e0b', '#06b6d4'], 'fill-opacity': ['match', ['get', 's'], 0, 0.03, 0.28] } });
+  if (!map.getLayer('tiles-line')) map.addLayer({ id: 'tiles-line', type: 'line', source: 'tiles-grid', layout: { visibility: vis },
+    paint: { 'line-color': ['match', ['get', 's'], 1, '#60a5fa', 2, '#34d399', 3, '#fbbf24', '#22d3ee'], 'line-width': ['match', ['get', 's'], 0, 0.6, 2], 'line-opacity': 0.85 } });
+}
+function refreshGrid() { if (map && map.getSource('tiles-grid')) map.getSource('tiles-grid').setData(gridGeoJSON()); }
+function setMapStyle(mode) {
+  st.mapStyle = mode;
+  $('styleOrtho').classList.toggle('active', mode === 'ortho'); $('stylePlan').classList.toggle('active', mode === 'plan'); $('styleVector').classList.toggle('active', mode === 'vector');
+  if (map) map.setStyle(mapStyle(mode));
+}
+function initMap() {
+  if (!window.maplibregl) { log('Carte indisponible (MapLibre non chargé — connexion ?)', 'err'); return; }
+  map = new maplibregl.Map({ container: 'map', style: mapStyle(st.mapStyle), center: [ORIGIN.lng, ORIGIN.lat], zoom: IS_SMALL ? 12.6 : 13.4, pitch: 35, bearing: -12, maxPitch: 75 });
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right');
+  map.on('style.load', ensureGridLayers);
+  map.on('error', e => { if (!st.mapErr) { st.mapErr = true; log('Carte : ' + ((e && e.error && e.error.message) || 'fond de carte inaccessible'), 'warn'); } });
+  map.on('click', e => {
+    const tg = e.originalEvent && e.originalEvent.target;
+    if (tg && tg.closest && tg.closest('.custom-marker, .maplibregl-popup')) return;
+    const { lng, lat } = e.lngLat;
+    if (st.placingMarker) { addMarkerAt(lat, lng); return; }
+    const [x, z] = geoToLocal(lat, lng), i = Math.floor(x / st.S), j = Math.floor(z / st.S), id = tileId(i, j);
+    if (!st.selected.has(id) && !inEmprise(i, j)) { toast('Hors emprise : agrandissez l’emprise.'); return; }
+    if (st.selected.has(id)) st.selected.delete(id); else st.selected.add(id);
+    refreshGrid(); updateSelUI();
+  });
+  map.on('mousemove', e => {
+    const [x, z] = geoToLocal(e.lngLat.lat, e.lngLat.lng);
+    $('coordsReadout').textContent = `${e.lngLat.lat.toFixed(5)}° N, ${e.lngLat.lng.toFixed(5)}° E · tuile ${tileId(Math.floor(x / st.S), Math.floor(z / st.S))}`;
+  });
+  renderMarkersOnMap();
+}
+
+// ----------------------------- SÉLECTION -----------------------------
+function selectAround(x, z, r) {
+  let n = 0;
+  for (const t of empriseTiles()) {
+    const rc = tileRect(t.i, t.j, st.S);
+    const dx = Math.max(rc.x0 - x, 0, x - rc.x1), dz = Math.max(rc.z0 - z, 0, z - rc.z1);
+    if (Math.hypot(dx, dz) <= r) { st.selected.add(t.id); n++; }
+  }
+  refreshGrid(); updateSelUI();
+  return n;
+}
+function updateSelUI() {
+  const n = st.selected.size, km2 = n * (st.S / 1000) ** 2;
+  $('badgeSel').textContent = `${n} tuile${n > 1 ? 's' : ''}`;
+  $('statSel').textContent = km2.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' km²';
+  $('statTiles').textContent = fmt(empriseTiles().length);
+  $('valEmprise').textContent = `${st.empriseKm} × ${st.empriseKm} km`;
+  $('btnGenerate').textContent = n ? `Générer ${n} tuile${n > 1 ? 's' : ''} en 3D` : 'Générer la sélection en 3D';
+}
+async function geocode(q, bounded) {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=fr&countrycodes=fr&viewbox=2.80,42.77,3.00,42.64${bounded ? '&bounded=1' : ''}&q=${encodeURIComponent(q)}`;
+  const r = await fetchWithTimeout(url, {}, 12000);
+  const js = await r.json();
+  return js && js[0] ? { lat: +js[0].lat, lng: +js[0].lon, name: js[0].display_name } : null;
+}
+async function selectQuartier(q) {
+  let lat = q.lat, lng = q.lng;
+  if (q.q) {
+    try {
+      const r = await geocode(q.q, true);
+      if (r) { const [a, b] = geoToLocal(r.lat, r.lng), [c, d] = geoToLocal(q.lat, q.lng); if (Math.hypot(a - c, b - d) < 2500) { lat = r.lat; lng = r.lng; } }
+    } catch (e) { /* coordonnées approchées */ }
+  }
+  const [x, z] = geoToLocal(lat, lng);
+  const n = selectAround(x, z, 450);
+  if (map) map.flyTo({ center: [lng, lat], zoom: 15, duration: 900 });
+  toast(`${q.nom} : ${n} tuiles ajoutées`);
+}
+function parseCoords(input) {
+  const s = input.trim(); let m;
+  if ((m = s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/))) return { lat: +m[1], lng: +m[2] };
+  if ((m = s.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/))) return { lat: +m[1], lng: +m[2] };
+  if ((m = s.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/))) return { lat: +m[1], lng: +m[2] };
+  if ((m = s.match(/^(-?\d+\.\d+)\s*[,;\s]\s*(-?\d+\.\d+)$/))) return { lat: +m[1], lng: +m[2] };
+  return null;
+}
+async function handleSearch() {
+  const q = $('searchInput').value.trim(); if (!q) return;
+  let hit = parseCoords(q);
+  if (!hit) {
+    setStatus(`Recherche « ${q} »…`, true);
+    try { hit = await geocode(/perpignan/i.test(q) ? q : q + ', Perpignan', false); } catch (e) { hit = null; }
+    if (!hit) { setStatus('Lieu introuvable'); toast('Aucun lieu trouvé.'); return; }
+  }
+  st.focus = { lat: hit.lat, lng: hit.lng, nom: q };
+  $('btnSelCenter').textContent = 'Autour (1 km)';
+  if (map && st.view === 'map') map.flyTo({ center: [hit.lng, hit.lat], zoom: 16, duration: 1000 });
+  if (st.view === '3d') { const [x, z] = geoToLocal(hit.lat, hit.lng); focus3D(x, z); }
+  const [x, z] = geoToLocal(hit.lat, hit.lng);
+  setStatus(`${q} — tuile ${tileId(Math.floor(x / st.S), Math.floor(z / st.S))}`);
+  toast('Lieu trouvé. « Autour (1 km) » sélectionne les tuiles voisines.');
+}
+
+// ----------------------------- MARQUEURS -----------------------------
+function addMarkerAt(lat, lng) {
+  const type = $('markerType').value, custom = $('markerLabel').value.trim();
+  const label = custom || `${MARKER_META[type].name} #${st.markers.length + 1}`;
+  st.markers.push({ id: Date.now() + Math.random(), type, label, lat: +lat.toFixed(6), lng: +lng.toFixed(6) });
+  $('markerLabel').value = '';
+  markersChanged(); toast('Marqueur ajouté : ' + label);
+}
+function markersChanged() { renderMarkersOnMap(); renderMarkerList(); updateMarkers3D(); updatePrompt(); }
+function renderMarkersOnMap() {
+  mapMarkers.forEach(m => m.remove()); mapMarkers = [];
+  if (!map) return;
+  for (const m of st.markers) {
+    const meta = MARKER_META[m.type], el = document.createElement('div');
+    el.className = 'custom-marker'; el.style.background = meta.color; el.textContent = meta.icon; el.title = m.label;
+    mapMarkers.push(new maplibregl.Marker({ element: el }).setLngLat([m.lng, m.lat])
+      .setPopup(new maplibregl.Popup({ offset: 18 }).setHTML(`<div style="color:#111;font-size:12px;"><b>${esc(m.label)}</b><br/>${esc(meta.name)}<br/><code>${m.lat}, ${m.lng}</code></div>`)).addTo(map));
+  }
+}
+function renderMarkerList() {
+  const list = $('markerList'); $('markerCountBadge').textContent = st.markers.length; list.innerHTML = '';
+  if (!st.markers.length) { list.innerHTML = '<div style="font-size:11px;color:var(--muted);text-align:center;padding:8px;">Aucun marqueur. Activez « Placer sur la carte » puis touchez la ville.</div>'; return; }
+  for (const m of st.markers) {
+    const meta = MARKER_META[m.type], item = document.createElement('div');
+    item.className = 'marker-item';
+    item.innerHTML = `<div class="marker-info"><div class="marker-name">${meta.icon} ${esc(m.label)}</div><div class="marker-meta">${m.lat.toFixed(4)}, ${m.lng.toFixed(4)}</div></div><button class="danger" style="padding:3px 8px;font-size:11px;">✕</button>`;
+    item.querySelector('.marker-info').onclick = () => {
+      if (st.view === '3d') { const [x, z] = geoToLocal(m.lat, m.lng); focus3D(x, z); }
+      else if (map) map.flyTo({ center: [m.lng, m.lat], zoom: 16.5, pitch: 60, duration: 800 });
+    };
+    item.querySelector('button').onclick = e => { e.stopPropagation(); st.markers = st.markers.filter(x => x.id !== m.id); markersChanged(); };
+    list.appendChild(item);
+  }
+}
+function togglePlacing() {
+  st.placingMarker = !st.placingMarker;
+  $('btnPlaceMarker').classList.toggle('active', st.placingMarker); $('btnPlaceMarker2').classList.toggle('active', st.placingMarker);
+  $('btnPlaceMarker').textContent = st.placingMarker ? 'Placer sur la carte (ON — touchez)' : 'Placer sur la carte (OFF)';
+  if (map) map.getCanvas().style.cursor = st.placingMarker ? 'crosshair' : '';
+  if (st.placingMarker && st.view !== 'map') setView('map');
+}
+
+// ----------------------------- GÉNÉRATION -----------------------------
+function readOpts() {
+  return {
+    bldSource: $('optBld').value, orthoSource: $('optOrtho').value, texSize: +$('optTex').value,
+    relief: $('chkRelief').checked, pitched: $('chkPitched').checked, orthoRoofs: $('chkOrthoRoofs').checked,
+    roads: $('chkRoads').checked, rails: $('chkRails').checked, water: $('chkWater').checked, trees: $('chkTrees').checked, plazas: $('chkPlazas').checked,
+  };
+}
+function setBusy(b) {
+  st.busy = b;
+  $('btnGenerate').disabled = b; $('btnCancel').hidden = !b;
+  ['btnExportZone', 'btnExportZip', 'tileSizeSelect'].forEach(id => { $(id).disabled = b; });
+}
+function lightRecord(rec) {
+  return { id: rec.id, i: rec.i, j: rec.j, S: rec.S, stats: rec.stats, roads: rec.roads, rails: rec.rails, pois: rec.pois, bsrc: rec.bsrc, sol: rec.sol };
+}
+async function runGeneration() {
+  if (st.busy) return;
+  const ids = [...st.selected].sort();
+  if (!ids.length) { toast('Sélectionnez des tuiles sur la carte (ou un quartier).'); return; }
+  if (!(await ensureThree())) return;
+  const opts = readOpts(), batch = $('chkBatch').checked;
+  const maxPreview = IS_SMALL || IS_TOUCH ? 16 : 36;
+  if (!batch && ids.length + st.generated.size > maxPreview) {
+    if (!confirm(`${ids.length + st.generated.size} tuiles en aperçu risquent de saturer la mémoire (surtout sur iPhone). Continuer ? (Le « mode lot » exporte sans garder l'aperçu.)`)) return;
+  }
+  if (!batch && st.generated.size && st.reliefUsed !== null && st.reliefUsed !== opts.relief) {
+    log('Option « Relief » modifiée : les tuiles déjà générées sont effacées pour rester alignées.', 'warn');
+    clearAllTiles();
+  }
+  ground = opts.relief ? groundRelief : groundFlat;
+  if (!batch) st.reliefUsed = opts.relief;
+  st.cancel = false; setBusy(true);
+  const t0 = performance.now();
+  const zip = batch ? new ZipBuilder() : null, batchRecs = [];
+  let okCount = 0;
+  log(`— Génération de ${ids.length} tuile(s) de ${st.S} m${batch ? ' (mode lot)' : ''} —`);
+  for (let k = 0; k < ids.length; k++) {
+    if (st.cancel) { log('Génération annulée.', 'warn'); break; }
+    const t = parseTileId(ids[k], st.S);
+    setProgress(k / ids.length, `Tuile ${k + 1}/${ids.length} — ${t.id}`);
+    setStatus(`Génération ${k + 1}/${ids.length} (${t.id})…`, true);
+    st.loading.add(t.id); refreshGrid();
+    try {
+      const data = await loadTileData(t, opts);
+      setProgress(undefined, `${t.id} : construction des maillages…`);
+      await sleep(10);
+      const rec = buildRecord(t, data, opts);
+      const s = rec.stats;
+      if (batch) {
+        const glb = await exportGLB(rec.group);
+        zip.add(`tuiles/perpignan_${t.id}.glb`, new Uint8Array(glb));
+        batchRecs.push(lightRecord(rec)); disposeRecord(rec);
+        log(`✓ ${t.id} → GLB ${fmtMo(glb.byteLength)}`, 'ok');
+      } else addRecord(rec);
+      log(`✓ ${t.id} : ${fmt(s.batiments)} bâtiments (${data.bsrc}), ${s.routesKm.toLocaleString('fr-FR')} km de voies, ${fmt(s.arbres)} arbres, ${fmt(s.triangles)} triangles — sol : ${rec.sol}`, 'ok');
+      okCount++;
+    } catch (e) {
+      console.error(e);
+      log(`✗ ${t.id} : ${e.message}`, 'err');
+    }
+    st.loading.delete(t.id); refreshGrid();
+    await sleep(20);
+  }
+  const dur = ((performance.now() - t0) / 1000).toFixed(0);
+  if (batch && batchRecs.length) {
+    addDocsToZip(zip, batchRecs);
+    downloadBlob(zip.blob(), `perpignan_3d_${batchRecs.length}_tuiles.zip`);
+    log(`ZIP exporté : ${batchRecs.length} tuiles.`, 'ok');
+  }
+  setProgress(1, `Terminé : ${okCount}/${ids.length} tuile(s) en ${dur} s.`);
+  setStatus(`Perpignan — ${st.generated.size} tuile(s) en 3D`);
+  setBusy(false);
+  if (!batch && okCount) { await setView('3d'); frameZone(); toast(`${okCount} tuile(s) générée(s). Touchez « Jouer » pour conduire.`); }
+  if (!okCount && !st.cancel) {
+    toast('Aucune tuile n’a pu être générée : voir le diagnostic.');
+    if (st.view !== 'map') await setView('map');
+    showBoot(); runDiagnostics(false);
+  }
+}
+
+// ----------------------------- EXPORTS -----------------------------
+async function exportGLB(obj) {
+  const ex = new GLTFExporter();
+  return await ex.parseAsync(obj, { binary: true, onlyVisible: true, maxTextureSize: 4096 });
+}
+function sortedRecords() { return [...st.generated.values()].sort((a, b) => a.id.localeCompare(b.id)); }
+async function exportZone() {
+  if (!st.generated.size) { toast('Aucune tuile générée.'); return; }
+  setBusy(true); setStatus('Export GLB de la zone…', true);
+  try {
+    const glb = await exportGLB(R.tilesRoot);
+    downloadBlob(new Blob([glb], { type: 'model/gltf-binary' }), `perpignan_zone_${st.generated.size}_tuiles.glb`);
+    log(`GLB de la zone exporté (${fmtMo(glb.byteLength)}).`, 'ok');
+  } catch (e) { console.error(e); log('Export GLB impossible : ' + e.message, 'err'); }
+  setBusy(false); setStatus(`Perpignan — ${st.generated.size} tuile(s) en 3D`);
+}
+async function exportZip() {
+  if (!st.generated.size) { toast('Aucune tuile générée.'); return; }
+  setBusy(true);
+  try {
+    const zip = new ZipBuilder(), recs = sortedRecords();
+    for (let k = 0; k < recs.length; k++) {
+      setStatus(`Export ${k + 1}/${recs.length} (${recs[k].id})…`, true); setProgress(k / recs.length, `Export GLB ${recs[k].id}…`);
+      const glb = await exportGLB(recs[k].group);
+      zip.add(`tuiles/perpignan_${recs[k].id}.glb`, new Uint8Array(glb));
+      await sleep(5);
+    }
+    addDocsToZip(zip, recs.map(lightRecord));
+    downloadBlob(zip.blob(), `perpignan_3d_${recs.length}_tuiles.zip`);
+    setProgress(1, 'ZIP exporté.'); log(`ZIP exporté : ${recs.length} tuile(s) + manifeste + routes + prompt.`, 'ok');
+  } catch (e) { console.error(e); log('Export ZIP impossible : ' + e.message, 'err'); }
+  setBusy(false); setStatus(`Perpignan — ${st.generated.size} tuile(s) en 3D`);
+}
+function markersLocal() {
+  return st.markers.map(m => {
+    const [x, z] = geoToLocal(m.lat, m.lng);
+    const y = R.ray ? markerGroundY(x, z) : null;
+    return { type: m.type, label: m.label, lat: m.lat, lng: m.lng, x: +x.toFixed(2), y: y === null ? null : +y.toFixed(2), z: +z.toFixed(2) };
+  });
+}
+function buildManifest(recs) {
+  const opts = readOpts(), pois = new Map();
+  for (const r of recs) for (const p of r.pois || []) pois.set(p.id, p);
+  const sumStat = k => recs.reduce((s, r) => s + (r.stats[k] || 0), 0);
+  return {
+    schema: 'perpignan-3d-studio/v1', genereLe: new Date().toISOString(), ville: 'Perpignan (Pyrénées-Orientales)',
+    repere: {
+      origine: { lat: ORIGIN.lat, lng: ORIGIN.lng, altitude: 0 },
+      axes: 'glTF Y-up — X = Est, Y = altitude au-dessus du niveau de la mer (m), Z = Sud ; 1 unité = 1 mètre',
+      projection: 'équirectangulaire locale centrée sur l’origine', kLat: +K_LAT.toFixed(4), kLng: +K_LNG.toFixed(4),
+      versLocal: 'x = (lng − lng0) × kLng ; z = −(lat − lat0) × kLat', versGPS: 'lat = lat0 − z / kLat ; lng = lng0 + x / kLng',
+      relief: (st.reliefUsed ?? opts.relief) ? 'MNT Terrain Tiles, grille de 15,625 m' : 'désactivé (Y = 0)',
+    },
+    tuiles: {
+      tailleM: st.S, regle: 'la tuile (i, j) couvre x ∈ [i·S, (i+1)·S[ et z ∈ [j·S, (j+1)·S[ ; géométrie déjà positionnée, importer à (0,0,0)',
+      liste: recs.map(r => { const rc = tileRect(r.i, r.j, r.S), g = tileBoundsGeo(r.i, r.j, r.S); return { id: r.id, i: r.i, j: r.j, fichier: `tuiles/perpignan_${r.id}.glb`, local: rc, gps: { nord: +g.north.toFixed(7), sud: +g.south.toFixed(7), ouest: +g.west.toFixed(7), est: +g.east.toFixed(7) }, sourceBatiments: r.bsrc, sol: r.sol, stats: r.stats }; }),
+      total: { batiments: sumStat('batiments'), triangles: sumStat('triangles'), routesKm: +sumStat('routesKm').toFixed(2), arbres: sumStat('arbres') },
+    },
+    noeudsGLB: ['Sol_Orthophoto', 'Facades_<categorie>_<variante>', 'Toits_Photo | Toits_Tuiles | Toits_Terrasses | Toits_Industriels', 'Routes_Principales', 'Rues', 'Chemins_Pietons', 'Voies_Ferrees', 'Places_Pietonnes', 'Eau', 'Arbres_Troncs', 'Arbres_Feuillage_<n>'],
+    marqueurs: markersLocal(),
+    poisOSM: [...pois.values()],
+    options: opts,
+    jeu: {
+      moteur: $('engineSelect').value, genre: $('genreSelect').value, ambiance: $('weatherSelect').value,
+      systemes: { conduite: $('chkDrive').checked, pieton: $('chkWalk').checked, traficIA: $('chkTraffic').checked, minimap: $('chkMinimap').checked, missions: $('chkMissions').checked, streaming: $('chkLOD').checked },
+    },
+    licences: [
+      'Bâtiments BD TOPO® et orthophotographies : © IGN — Licence Ouverte Etalab 2.0 (mention « IGN » obligatoire)',
+      'Voies, eau, arbres, points d’intérêt : © contributeurs OpenStreetMap — ODbL 1.0',
+      'Relief : Terrain Tiles (AWS Open Data / Mapzen) — sources dont EU-DEM (Copernicus) et SRTM',
+      'Option Esri World Imagery : aperçu uniquement, ne pas redistribuer',
+    ],
+  };
+}
+function buildRoads(recs) {
+  const routes = [], rails = [];
+  for (const r of recs) { for (const x of r.roads || []) routes.push(Object.assign({ tuile: r.id }, x)); for (const x of r.rails || []) rails.push(Object.assign({ tuile: r.id }, x)); }
+  return {
+    schema: 'perpignan-3d-studio/routes-v1', repere: 'points [x, y, z] en mètres (X = Est, Y = altitude du sol, Z = Sud) ; les polylignes sont coupées aux bords des tuiles, les extrémités coïncident',
+    sensUnique: '1 = dans le sens des points, -1 = sens inverse, 0 = double sens', routes, voiesFerrees: rails,
+  };
+}
+function readmeText(recs) {
+  return `# Perpignan 3D — tuiles pour jeu vidéo
+
+Généré le ${new Date().toLocaleString('fr-FR')} avec Perpignan 3D Studio — ${recs.length} tuile(s) de ${st.S} m.
+
+## Contenu
+- \`tuiles/perpignan_<id>.glb\` : une tuile (glTF 2.0 binaire, textures incluses).
+- \`perpignan_manifest.json\` : repère, liste des tuiles, marqueurs de gameplay, points d'intérêt.
+- \`perpignan_routes.json\` : réseau de voies en polylignes 3D (classe, nom, largeur, sens unique, vitesse).
+- \`PROMPT_CLAUDE_CODE.md\` : brief prêt à coller dans Claude Code pour construire le jeu.
+
+## Repère
+- Origine (0, 0, 0) : lat ${ORIGIN.lat}, lng ${ORIGIN.lng} (centre-ville), Y = altitude au-dessus du niveau de la mer.
+- X = Est, Y = haut, Z = Sud, 1 unité = 1 m. Les tuiles sont déjà positionnées : importez-les toutes en (0, 0, 0).
+- La tuile (i, j) couvre x ∈ [i·${st.S}, (i+1)·${st.S}[ et z ∈ [j·${st.S}, (j+1)·${st.S}[.
+
+## Nœuds de chaque GLB
+Sol_Orthophoto · Facades_* · Toits_* · Routes_Principales · Rues · Chemins_Pietons · Voies_Ferrees · Places_Pietonnes · Eau · Arbres_Troncs · Arbres_Feuillage_*
+
+Collisions conseillées : Facades_* et Toits_* (bâtiments), Sol_Orthophoto + routes (sol roulable).
+
+## Import
+- **Blender** : Fichier › Importer › glTF 2.0.
+- **Unity 6** : installer le paquet glTFast (\`com.unity.cloud.gltfast\`), glisser les .glb dans Assets.
+- **Unreal Engine 5** : glisser les .glb dans le Content Browser (import glTF Interchange).
+- **Godot 4** : copier les .glb dans le projet (import natif).
+- **Three.js** : \`GLTFLoader\`.
+
+## Mentions obligatoires
+- Bâtiments BD TOPO® et orthophotographies : © IGN — Licence Ouverte Etalab 2.0.
+- Voies, eau, arbres, POI : © contributeurs OpenStreetMap — ODbL 1.0 (base dérivée à partager sous la même licence).
+- Relief : Terrain Tiles (AWS Open Data / Mapzen), sources dont EU-DEM (Copernicus) et SRTM.
+- Imagerie Esri (si cette option a été choisie) : aperçu uniquement, ne pas redistribuer.
+`;
+}
+function addDocsToZip(zip, recs) {
+  zip.add('perpignan_manifest.json', JSON.stringify(buildManifest(recs), null, 2));
+  zip.add('perpignan_routes.json', JSON.stringify(buildRoads(recs)));
+  zip.add('LISEZMOI.md', readmeText(recs));
+  zip.add('PROMPT_CLAUDE_CODE.md', buildPrompt(recs));
+}
+const ENGINE_TXT = {
+  threejs: {
+    label: 'Three.js (web) — Vite + GLTFLoader + Rapier (physique)',
+    stack: `- Projet Vite + TypeScript, Three.js, \`@dimforge/rapier3d-compat\` pour la physique.
+- \`TileStreamer\` : lit le manifeste, charge les GLB avec \`GLTFLoader\` dans un rayon de 2 tuiles autour du joueur, décharge au-delà de 3 (dispose des géométries et textures).
+- Collisions : collider trimesh Rapier sur les nœuds Facades_* / Toits_* / Sol_Orthophoto / routes de chaque tuile chargée.
+- Véhicule : \`DynamicRayCastVehicleController\` de Rapier (4 roues, suspension, adhérence), caméra poursuite lissée.`,
+  },
+  unity: {
+    label: 'Unity 6 (URP) — glTFast',
+    stack: `- Unity 6 URP, paquet glTFast (\`com.unity.cloud.gltfast\`), Input System.
+- \`TileStreamer\` (MonoBehaviour) : lit le manifeste (Newtonsoft JSON), instancie les GLB par \`GltfImport\` (ou prefabs importés) dans un rayon de 2 tuiles, décharge au-delà de 3.
+- Collisions : \`MeshCollider\` sur Facades_* / Toits_* / Sol_Orthophoto / routes.
+- Véhicule : \`WheelCollider\` ×4 + script d'adhérence arcade, caméra Cinemachine.`,
+  },
+  unreal: {
+    label: 'Unreal Engine 5.4+ — import glTF Interchange',
+    stack: `- UE 5.4+, import des GLB (Interchange glTF), World Partition ou streaming par Level Instances (une tuile = une cellule).
+- Collisions : « Use Complex as Simple » sur les maillages Facades_* / Toits_* / Sol_Orthophoto / routes.
+- Véhicule : Chaos Vehicles (WheeledVehiclePawn), Enhanced Input, caméra SpringArm.
+- Code C++ ou Blueprints documentés pour le chargement du manifeste et des routes (FJsonObject).`,
+  },
+  godot: {
+    label: 'Godot 4.3+ — import glTF natif',
+    stack: `- Godot 4.3+ (GDScript), import natif des GLB.
+- \`TileStreamer.gd\` : charge les scènes GLB (ResourceLoader threadé) dans un rayon de 2 tuiles, libère au-delà de 3.
+- Collisions : \`create_trimesh_collision()\` sur Facades_* / Toits_* / Sol_Orthophoto / routes.
+- Véhicule : \`VehicleBody3D\` + 4 \`VehicleWheel3D\`, caméra \`SpringArm3D\`.`,
+  },
+};
+const GENRE_TXT = {
+  openworld_drive: 'Open-world conduite & exploration (style GTA / Driver)', racing: 'Course urbaine & drift dans Perpignan',
+  survival: 'Survie urbaine / post-apocalyptique', delivery: 'Simulation livraison / interventions techniques', tactical: 'Action / exploration à pied & véhicules',
+};
+const WEATHER_TXT = { sunny_med: 'Soleil méditerranéen + cycle jour/nuit', golden_hour: 'Coucher de soleil cinématique', tramontane: 'Tramontane : ciel dégagé, vent fort, poussière', rain_night: 'Nuit pluvieuse + reflets néon' };
+function buildPrompt(recs) {
+  recs = recs || sortedRecords().map(lightRecord);
+  const eng = ENGINE_TXT[$('engineSelect').value];
+  const sys = [['chkDrive', 'Physique de conduite'], ['chkWalk', 'Mode piéton (touche F)'], ['chkTraffic', 'Trafic IA sur le graphe routier'], ['chkMinimap', 'Minimap GPS'], ['chkMissions', 'Missions / quêtes'], ['chkLOD', 'Streaming des tuiles']]
+    .filter(([id]) => $(id).checked).map(([, l]) => '- ' + l).join('\n');
+  const mk = markersLocal();
+  const markersMd = mk.length ? mk.map(m => `- [${m.type.toUpperCase()}] **${m.label}** → x: \`${m.x}\`, z: \`${m.z}\`${m.y !== null ? `, y: \`${m.y}\`` : ''} (GPS ${m.lat}, ${m.lng})`).join('\n') : '- (aucun : spawn au centre de la zone)';
+  let zone = '- (aucune tuile générée pour l’instant : utiliser les tuiles listées dans le manifeste)';
+  if (recs.length) {
+    let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity, b = 0;
+    for (const r of recs) { const t = tileRect(r.i, r.j, r.S); x0 = Math.min(x0, t.x0); z0 = Math.min(z0, t.z0); x1 = Math.max(x1, t.x1); z1 = Math.max(z1, t.z1); b += r.stats.batiments; }
+    zone = `- ${recs.length} tuile(s) de ${st.S} m : ${recs.slice(0, 40).map(r => r.id).join(', ')}${recs.length > 40 ? '…' : ''}
+- Emprise locale : x ∈ [${x0}, ${x1}], z ∈ [${z0}, ${z1}] (${((x1 - x0) / 1000).toLocaleString('fr-FR')} × ${((z1 - z0) / 1000).toLocaleString('fr-FR')} km)
+- ${fmt(b)} bâtiments réels (hauteurs IGN BD TOPO), voies OpenStreetMap, sol en orthophoto IGN`;
+  }
+  return `# BRIEF — JEU 3D DANS LE VRAI PERPIGNAN (tuiles GLB)
+
+Tu es un développeur de jeux vidéo senior. Construis un projet complet et exécutable qui utilise les tuiles 3D réelles de Perpignan fournies dans ce dossier.
+
+## 1. Données fournies
+- \`perpignan_manifest.json\` : repère, liste des tuiles (fichier, emprise locale et GPS), marqueurs, points d'intérêt OSM.
+- \`tuiles/perpignan_<id>.glb\` : une tuile par fichier, géométrie déjà en coordonnées monde (importer en 0,0,0). Nœuds : Sol_Orthophoto, Facades_*, Toits_*, Routes_Principales, Rues, Chemins_Pietons, Voies_Ferrees, Places_Pietonnes, Eau, Arbres_*.
+- \`perpignan_routes.json\` : polylignes 3D [x, y, z] des voies avec classe, nom, largeur, sensUnique, vitesseMax.
+- Repère : X = Est, Y = altitude (m), Z = Sud, 1 unité = 1 m. Origine = GPS (${ORIGIN.lat}, ${ORIGIN.lng}). Conversion : \`x = (lng − ${ORIGIN.lng}) × ${K_LNG.toFixed(3)}\`, \`z = −(lat − ${ORIGIN.lat}) × ${K_LAT.toFixed(3)}\`.
+
+## 2. Zone
+${zone}
+
+## 3. Direction du jeu
+- **Moteur** : ${eng.label}
+- **Genre** : ${GENRE_TXT[$('genreSelect').value]}
+- **Ambiance** : ${WEATHER_TXT[$('weatherSelect').value]}
+- **Systèmes** :
+${sys}
+
+## 4. Marqueurs de gameplay
+${markersMd}
+
+## 5. Exigences techniques
+${eng.stack}
+- Trafic IA : véhicules qui suivent \`perpignan_routes.json\` (respect de sensUnique et vitesseMax, arrêt si obstacle), piétons sur Chemins_Pietons et Places_Pietonnes.
+- HUD : vitesse km/h, nom de la rue la plus proche (champ \`nom\` des routes), minimap orientée cap dessinée depuis les routes, boussole, objectif actif.
+- Missions : une mission par marqueur MISSION/CHECKPOINT, déclenchée dans un rayon de 15 m, chaînage simple et sauvegarde locale.
+- L'emprise reste sous 12 km : pas besoin d'origine flottante en float32.
+- Afficher les mentions « © IGN » et « © contributeurs OpenStreetMap » dans l'écran des crédits.
+
+## 6. Livrables
+1. Arborescence complète du projet et instructions d'installation exactes.
+2. Code complet : streaming des tuiles, contrôleur véhicule + piéton, caméra, HUD, minimap, trafic IA, missions.
+3. Un niveau jouable qui démarre au marqueur SPAWN.
+
+Commence par l'arborescence, puis écris les fichiers principaux prêts à lancer.`;
+}
+function updatePrompt() { $('promptPreview').value = buildPrompt(); }
+
+// ----------------------------- VUES -----------------------------
+async function setView(v) {
+  if (v === '3d') hideBoot();
+  if (v === '3d' && !(await ensureThree())) return;
+  if (v === 'map' && G.active) stopGame();
+  st.view = v;
+  $('map').hidden = v !== 'map'; $('three').hidden = v !== '3d';
+  $('hudMap').hidden = v !== 'map'; $('hud3d').hidden = v !== '3d' || G.active;
+  $('empty3d').hidden = v !== '3d' || st.generated.size > 0;
+  $('tabMap').classList.toggle('active', v === 'map'); $('tab3d').classList.toggle('active', v === '3d');
+  if (v === 'map' && map) setTimeout(() => map.resize(), 30);
+  if (v === '3d') { resizeRenderer(); if (R.clock) R.clock.getDelta(); }
+}
+
+// ----------------------------- LIAISONS UI -----------------------------
+function bindUI() {
+  $('btnSearch').onclick = handleSearch;
+  $('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleSearch(); });
+  $('tabMap').onclick = () => setView('map');
+  $('tab3d').onclick = () => setView('3d');
+  $('tabPlay').onclick = startGame;
+  $('empriseSlider').oninput = e => {
+    st.empriseKm = +e.target.value;
+    for (const id of [...st.selected]) { const t = parseTileId(id, st.S); if (t && !inEmprise(t.i, t.j)) st.selected.delete(id); }
+    refreshGrid(); updateSelUI();
+  };
+  $('tileSizeSelect').onchange = e => {
+    const S = +e.target.value;
+    if (st.generated.size && !confirm('Changer la taille des tuiles efface les tuiles déjà générées. Continuer ?')) { e.target.value = String(st.S); return; }
+    if (st.generated.size) clearAllTiles();
+    st.S = S; st.selected.clear(); refreshGrid(); updateSelUI(); updatePrompt();
+  };
+  const qbox = $('quartiers');
+  for (const q of QUARTIERS) { const b = document.createElement('button'); b.textContent = q.nom; b.onclick = () => selectQuartier(q); qbox.appendChild(b); }
+  $('btnSelCenter').onclick = () => { const [x, z] = geoToLocal(st.focus.lat, st.focus.lng); const n = selectAround(x, z, 500); toast(`${n} tuiles autour de ${st.focus.nom}`); };
+  $('btnSelAll').onclick = () => {
+    const all = empriseTiles();
+    if (all.length > 64 && !confirm(`Sélectionner ${all.length} tuiles ? La génération complète peut prendre longtemps (mode lot conseillé).`)) return;
+    all.forEach(t => st.selected.add(t.id)); refreshGrid(); updateSelUI();
+  };
+  $('btnSelNone').onclick = () => { st.selected.clear(); refreshGrid(); updateSelUI(); };
+  $('styleOrtho').onclick = () => setMapStyle('ortho');
+  $('stylePlan').onclick = () => setMapStyle('plan');
+  $('styleVector').onclick = () => setMapStyle('vector');
+  $('btnToggleGrid').onclick = () => {
+    st.showGrid = !st.showGrid; $('btnToggleGrid').classList.toggle('active', st.showGrid);
+    if (map && map.getLayer('tiles-fill')) { const v = st.showGrid ? 'visible' : 'none'; map.setLayoutProperty('tiles-fill', 'visibility', v); map.setLayoutProperty('tiles-line', 'visibility', v); }
+  };
+  $('btnPlaceMarker').onclick = togglePlacing; $('btnPlaceMarker2').onclick = togglePlacing;
+  $('btnClearMarkers').onclick = () => { st.markers = []; markersChanged(); toast('Marqueurs effacés.'); };
+  $('btnGenerate').onclick = runGeneration;
+  $('btnCancel').onclick = () => { st.cancel = true; setProgress(undefined, 'Annulation après la tuile en cours…'); };
+  $('btnFrame').onclick = frameZone;
+  $('lightSelect').onchange = e => { if (R.renderer) setLighting(e.target.value); };
+  $('exposureSlider').oninput = e => { if (R.renderer) R.renderer.toneMappingExposure = +e.target.value; };
+  $('chkShadows').onchange = e => { if (R.sun) R.sun.castShadow = e.target.checked; };
+  $('chkRelief').onchange = () => { if (st.generated.size) toast('Le relief s’appliquera à la prochaine génération (les tuiles seront recréées).'); };
+  ['engineSelect', 'genreSelect', 'weatherSelect', 'chkDrive', 'chkWalk', 'chkTraffic', 'chkMinimap', 'chkMissions', 'chkLOD'].forEach(id => $(id).addEventListener('change', updatePrompt));
+  $('btnExportZone').onclick = exportZone;
+  $('btnExportZip').onclick = exportZip;
+  $('btnDownloadJson').onclick = () => {
+    downloadBlob(new Blob([JSON.stringify(buildManifest(sortedRecords().map(lightRecord)), null, 2)], { type: 'application/json' }), 'perpignan_manifest.json');
+    toast('Manifeste téléchargé.');
+  };
+  $('btnDownloadRoads').onclick = () => {
+    if (!st.generated.size) { toast('Générez des tuiles pour obtenir le réseau routier.'); return; }
+    downloadBlob(new Blob([JSON.stringify(buildRoads(sortedRecords()))], { type: 'application/json' }), 'perpignan_routes.json');
+  };
+  $('btnCopyPrompt').onclick = async () => {
+    const txt = buildPrompt();
+    try { await navigator.clipboard.writeText(txt); toast('Prompt copié : collez-le dans Claude Code.'); }
+    catch (e) { $('promptPreview').select(); document.execCommand('copy'); toast('Prompt copié.'); }
+  };
+  $('btnDownloadPrompt').onclick = () => downloadBlob(new Blob([buildPrompt()], { type: 'text/markdown' }), 'PROMPT_CLAUDE_CODE_perpignan.md');
+  bindGameInputs();
+}
+
+// ----------------------------- DIAGNOSTIC -----------------------------
+function reportError(msg) {
+  msg = String(msg || 'erreur inconnue');
+  log('Erreur : ' + msg, 'err');
+  setStatus('Erreur : ' + msg.slice(0, 70));
+  toast('Erreur : ' + msg.slice(0, 90));
+}
+function showBoot() { $('bootPanel').hidden = false; }
+function hideBoot() { $('bootPanel').hidden = true; }
+async function runDiagnostics(autoClose = true) {
+  showBoot();
+  $('bootTitle').textContent = 'Vérification de l’environnement…';
+  $('bootNoJs').hidden = true;
+  const adv = $('bootAdvice'); adv.hidden = true; adv.textContent = '';
+  const box = $('bootChecks'); box.innerHTML = '';
+  const items = [['js', 'Scripts de la page'], ['map', 'Bibliothèque de carte (MapLibre)'], ['webgl', 'Accélération 3D (WebGL)'],
+    ['ign', 'Internet : IGN Géoplateforme'], ['osm', 'Internet : OpenStreetMap'], ['three', 'Moteur 3D (Three.js)']];
+  const li = {};
+  for (const [k, l] of items) {
+    const e = document.createElement('li');
+    const ic = document.createElement('span'); ic.className = 'wait'; ic.textContent = '…';
+    const tx = document.createElement('span'); tx.textContent = l;
+    e.append(ic, tx); box.appendChild(e); li[k] = { ic, tx };
+  }
+  const set = (k, ok, note) => { li[k].ic.className = ok ? 'ok' : 'ko'; li[k].ic.textContent = ok ? '✔' : '✘'; if (note) li[k].tx.textContent += ' — ' + note; };
+  const r = { js: true };
+  set('js', true);
+  r.map = !!window.maplibregl; set('map', r.map, r.map ? '' : 'non chargée');
+  r.webgl = (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (e) { return false; } })();
+  set('webgl', r.webgl, r.webgl ? '' : 'indisponible');
+  const ovBody = 'data=' + encodeURIComponent('[out:json][timeout:5];node(1);out;');
+  const [ign, osm, three] = await Promise.all([
+    fetchWithTimeout(ORTHO_SRC.ign.url(5, 16, 11), { mode: 'cors' }, 10000).then(x => x.ok).catch(() => false),
+    Promise.any(OVERPASS.slice(0, 2).map(u => fetchWithTimeout(u, { method: 'POST', body: ovBody, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }, 15000)
+      .then(x => (x.ok ? true : Promise.reject(new Error('HTTP ' + x.status)))))).catch(() => false),
+    import('three').then(() => true).catch(() => false),
+  ]);
+  r.ign = ign; r.osm = osm; r.three = three;
+  set('ign', ign, ign ? '' : 'bloqué'); set('osm', osm, osm ? '' : 'bloqué ou saturé'); set('three', three, three ? '' : 'non chargé');
+  st.diag = r;
+  const notes = [];
+  if (!ign && !osm) notes.push('Cette page n’a pas accès à internet. L’aperçu de l’app Claude et l’app Fichiers de l’iPhone bloquent les connexions : ouvrez le fichier sur un ordinateur (double-clic → Chrome, Edge ou Safari) avec internet. Sur iPhone, il faut d’abord mettre le fichier en ligne.');
+  else {
+    if (!r.map && three) notes.push('La carte ne s’affiche pas, mais la 3D fonctionne : choisissez un quartier (panneau 1), puis « Générer ».');
+    if (!three) notes.push('Le moteur 3D ne se charge pas (accès à cdn.jsdelivr.net bloqué, ou navigateur trop ancien : iOS 16.4 minimum).');
+    if (!r.webgl) notes.push('WebGL est désactivé : la vue 3D ne peut pas s’afficher. Activez l’accélération matérielle du navigateur.');
+    if (!ign) notes.push('L’IGN ne répond pas : bâtiments et photos viendront d’OpenStreetMap et d’Esri.');
+    if (!osm) notes.push('OpenStreetMap (Overpass) ne répond pas pour l’instant : réessayez dans quelques minutes.');
+  }
+  const allOk = r.map && r.webgl && ign && osm && three;
+  $('bootTitle').textContent = allOk ? 'Tout est prêt ✔' : 'Problème détecté';
+  if (notes.length) { adv.textContent = notes.join(' '); adv.hidden = false; }
+  log(`Diagnostic : carte ${r.map ? 'OK' : 'KO'}, WebGL ${r.webgl ? 'OK' : 'KO'}, IGN ${ign ? 'OK' : 'KO'}, OSM ${osm ? 'OK' : 'KO'}, 3D ${three ? 'OK' : 'KO'}`, allOk ? 'ok' : 'warn');
+  setStatus(allOk ? 'Perpignan — prêt' : 'Problème détecté : voir le diagnostic');
+  if (allOk && autoClose) setTimeout(hideBoot, 900);
+  return r;
+}
+
+// ----------------------------- DÉMARRAGE -----------------------------
+window.addEventListener('error', e => reportError(e.message || (e.error && e.error.message)));
+window.addEventListener('unhandledrejection', e => reportError((e.reason && e.reason.message) || e.reason));
+$('bootNoJs').hidden = true;
+$('bootTitle').textContent = 'Démarrage…';
+$('bootRetry').onclick = () => runDiagnostics(false);
+$('bootClose').onclick = hideBoot;
+$('btnDiag').onclick = () => runDiagnostics(false);
+bindUI();
+try { initMap(); } catch (e) { console.error(e); reportError('carte : ' + e.message); }
+runDiagnostics(true);
+renderMarkerList();
+updateSelUI();
+updatePrompt();
+log('Perpignan 3D Studio prêt. Choisissez un quartier ou touchez des tuiles, puis « Générer ».');
+if (IS_TOUCH || IS_SMALL) $('optTex').value = '1024';
+
+  </script>
+</body>
+</html>
