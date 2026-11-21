@@ -950,6 +950,73 @@ class ZipBuilder {
   }
 }
 
+// ----- Réseau IGN BD TOPO (repli si OpenStreetMap ne répond pas) -----
+function ignSwap(features, lat0, lng0) {
+  for (const f of features || []) {
+    let c = f && f.geometry && f.geometry.coordinates;
+    while (Array.isArray(c) && Array.isArray(c[0])) c = c[0];
+    if (Array.isArray(c) && c.length >= 2) return (c[0] - lat0) ** 2 + (c[1] - lng0) ** 2 < (c[0] - lng0) ** 2 + (c[1] - lat0) ** 2;
+  }
+  return false;
+}
+function ignGet(p, k) { return p[k] !== undefined ? p[k] : p[k.toUpperCase()]; }
+function ignLines(g) { return !g ? [] : g.type === 'LineString' ? [g.coordinates] : g.type === 'MultiLineString' ? g.coordinates : []; }
+function ignPolys(g) { return !g ? [] : g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : []; }
+function ignRings(poly, swap) {
+  const rings = [];
+  poly.forEach((ring, ri) => {
+    const r = cleanRing(ring.map(c => swap ? geoToLocal(c[0], c[1]) : geoToLocal(c[1], c[0])), ri ? 1 : 4);
+    if (r) rings.push(orientRing(r, ri === 0)); else if (!ri) rings.push(null);
+  });
+  return rings.length && rings[0] ? rings : null;
+}
+const IGN_NAME_KEYS = ['nom_collaboratif_gauche', 'nom_collaboratif_droite', 'nom_1_gauche', 'nom_1_droite', 'nom_voie_ban_gauche', 'nom_voie_ban_droite', 'cpx_toponyme_route_nommee', 'toponyme'];
+function parseIGNNetwork(layers, lat0, lng0) {
+  const R = { roads: [], rails: [], waterAreas: [], waterLines: [], pedAreas: [], greens: [], trees: [], treeRows: [], pois: [], buildings: [] };
+  const roads = layers.troncon_de_route || [], sw = ignSwap(roads, lat0, lng0);
+  roads.forEach((f, k) => {
+    const p = f.properties || {}, get = key => ignGet(p, key);
+    const pos = num(get('position_par_rapport_au_sol'));
+    if (pos < 0) return;
+    const nature = String(get('nature') || ''), imp = parseInt(get('importance'), 10);
+    let cls = 'minor';
+    if (/sentier|escalier|piste cyclable|passerelle/i.test(nature)) cls = 'foot';
+    else if (/autoroutier|2 chauss/i.test(nature) || (imp >= 1 && imp <= 3)) cls = 'major';
+    let w = num(get('largeur_de_chaussee'));
+    if (!(w >= 1.5 && w <= 40)) {
+      const nv = num(get('nombre_de_voies'));
+      w = nv > 0 && nv < 10 ? nv * 3.1 + (cls === 'major' ? 1 : 0.4) : /chemin|empierr/i.test(nature) ? 3 : { major: 7.5, minor: 5.5, foot: 2 }[cls];
+    }
+    const sens = String(get('sens_de_circulation') || '');
+    let ms = num(get('vitesse_moyenne_vl')); if (!(ms > 0)) ms = cls === 'major' ? 50 : cls === 'minor' ? 30 : 6;
+    const nm = IGN_NAME_KEYS.map(get).find(v => v && String(v).trim() && String(v) !== 'null');
+    ignLines(f.geometry).forEach((line, li) => {
+      const pts = line.map(c => sw ? geoToLocal(c[0], c[1]) : geoToLocal(c[1], c[0]));
+      if (pts.length >= 2) R.roads.push({ id: 'ign_r' + (f.id || k) + '_' + li, hw: nature || 'route', cls, name: nm ? String(nm) : '', width: w,
+        oneway: /direct/i.test(sens) ? 1 : /inverse/i.test(sens) ? -1 : 0, maxspeed: Math.round(ms), bridge: pos > 0, pts });
+    });
+  });
+  const rails = layers.troncon_de_voie_ferree || [], swr = ignSwap(rails, lat0, lng0);
+  rails.forEach((f, k) => {
+    const p = f.properties || {}, pos = num(ignGet(p, 'position_par_rapport_au_sol'));
+    if (pos < 0) return;
+    ignLines(f.geometry).forEach((line, li) => {
+      const pts = line.map(c => swr ? geoToLocal(c[0], c[1]) : geoToLocal(c[1], c[0]));
+      if (pts.length >= 2) R.rails.push({ id: 'ign_f' + (f.id || k) + '_' + li, hw: String(ignGet(p, 'nature') || 'rail'), cls: 'rail', name: '', width: 3.2, bridge: pos > 0, pts });
+    });
+  });
+  const water = layers.surface_hydrographique || [], sww = ignSwap(water, lat0, lng0);
+  water.forEach((f, k) => { for (const poly of ignPolys(f.geometry)) { const rings = ignRings(poly, sww); if (rings) R.waterAreas.push({ id: 'ign_e' + (f.id || k), rings }); } });
+  const veg = layers.zone_de_vegetation || [], swv = ignSwap(veg, lat0, lng0);
+  veg.forEach((f, k) => {
+    const n = String(ignGet(f.properties || {}, 'nature') || '').toLowerCase();
+    const kind = /bois|forêt|foret|peupleraie/.test(n) ? 'wood' : /haie|lande/.test(n) ? 'scrub' : /verger/.test(n) ? 'garden' : null;
+    if (!kind) return;
+    for (const poly of ignPolys(f.geometry)) { const rings = ignRings(poly, swv); if (rings) R.greens.push({ id: 'ign_v' + (f.id || k), kind, rings }); }
+  });
+  return R;
+}
+
 // =====================================================================
 // BUILD — génération des maillages (tableaux bruts, sans Three.js)
 // =====================================================================
@@ -1343,7 +1410,7 @@ const OVERPASS = [
   'https://overpass.private.coffee/api/interpreter',
 ];
 const IGN_EP = ['https://data.geopf.fr/wfs/ows', 'https://data.geopf.fr/wfs'];
-const IGN_TN = ['BDTOPO_V3:batiment', 'bd_topo:batiment'];
+const IGN_NS = ['BDTOPO_V3', 'bd_topo'];
 
 // ----------------------------- ÉTAT -----------------------------
 const st = {
@@ -1471,19 +1538,19 @@ async function wfsPaged(ep, tn, bbox) {
   }
   return all;
 }
-async function fetchIGNBuildings(geo) {
+async function fetchIGNLayer(layer, geo) {
   const [mx0, my0] = lngLatToMerc(geo.west, geo.south), [mx1, my1] = lngLatToMerc(geo.east, geo.north);
   const bb = {
     m: `${mx0.toFixed(2)},${my0.toFixed(2)},${mx1.toFixed(2)},${my1.toFixed(2)},urn:ogc:def:crs:EPSG::3857`,
     g: `${geo.south.toFixed(7)},${geo.west.toFixed(7)},${geo.north.toFixed(7)},${geo.east.toFixed(7)},urn:ogc:def:crs:EPSG::4326`,
   };
   const combos = st.ign.combo ? [st.ign.combo] : [];
-  for (const ep of IGN_EP) for (const tn of IGN_TN) for (const b of ['m', 'g']) combos.push({ ep, tn, b });
+  for (const ep of IGN_EP) for (const ns of IGN_NS) for (const b of ['m', 'g']) combos.push({ ep, ns, b });
   let lastErr = null, empty = null;
   for (let k = 0; k < combos.length; k++) {
     const c = combos[k];
     try {
-      const f = await wfsPaged(c.ep, c.tn, bb[c.b]);
+      const f = await wfsPaged(c.ep, c.ns + ':' + layer, bb[c.b]);
       if (f.length) { st.ign.combo = c; return f; }
       if (st.ign.combo && k === 0) return f;
       empty = f;
@@ -1494,11 +1561,11 @@ async function fetchIGNBuildings(geo) {
 }
 async function fetchOverpass(q) {
   let lastErr = null;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 2; attempt++) {
     for (let k = 0; k < OVERPASS.length; k++) {
       const idx = (st.ovIdx + k) % OVERPASS.length;
       try {
-        const res = await fetchWithTimeout(OVERPASS[idx], { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }, 95000);
+        const res = await fetchWithTimeout(OVERPASS[idx], { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }, 60000);
         if (res.ok) {
           const js = await res.json();
           if (js.remark && /runtime error|timed out|out of memory/i.test(js.remark)) throw new Error('Overpass : ' + js.remark.slice(0, 90));
@@ -1578,7 +1645,7 @@ async function loadTileData(t, opts) {
     else {
       setProgress(undefined, `${t.id} : bâtiments IGN…`);
       try {
-        const feats = await fetchIGNBuildings(geo);
+        const feats = await fetchIGNLayer('batiment', geo);
         buildings = parseIGN(feats, (geo.north + geo.south) / 2, (geo.east + geo.west) / 2);
         CACHE.bld.set(bKey, buildings); bsrc = 'IGN BD TOPO'; st.ign.fails = 0;
       } catch (e) {
@@ -1590,20 +1657,29 @@ async function loadTileData(t, opts) {
   }
   const withB = !buildings;
   const sKey = `${t.id}|${t.S}|${withB ? 'b' : ''}`;
-  let osm = CACHE.osm.get(sKey);
-  if (!osm) {
+  let osm = CACHE.osm.get(sKey), nsrc = osm ? osm.src : '';
+  if (!osm && (!st.ovDown || withB)) {
     setProgress(undefined, `${t.id} : routes, eau, arbres (OpenStreetMap)…`);
-    try { const js = await fetchOverpass(overpassQuery(geo, withB)); osm = parseOSM(js.elements, withB); CACHE.osm.set(sKey, osm); }
+    try { const js = await fetchOverpass(overpassQuery(geo, withB)); osm = parseOSM(js.elements, withB); osm.src = nsrc = 'OpenStreetMap'; CACHE.osm.set(sKey, osm); }
     catch (e) {
       log('  OpenStreetMap indisponible : ' + e.message, 'warn');
-      osm = parseOSM([], false);
+      if (!st.ovDown) { st.ovDown = true; log('  OpenStreetMap mis de côté pour cette session (bouton Diagnostic pour réessayer).', 'warn'); }
       if (withB) throw new Error('aucune source de bâtiments disponible');
     }
+  }
+  if (!osm) {
+    setProgress(undefined, `${t.id} : routes, eau, végétation (IGN BD TOPO)…`);
+    const layers = {};
+    await Promise.all(['troncon_de_route', 'troncon_de_voie_ferree', 'surface_hydrographique', 'zone_de_vegetation'].map(l =>
+      fetchIGNLayer(l, geo).then(f => { layers[l] = f; }).catch(e => log(`  IGN ${l} indisponible : ${e.message}`, 'warn'))));
+    osm = parseIGNNetwork(layers, (geo.north + geo.south) / 2, (geo.east + geo.west) / 2);
+    osm.src = nsrc = Object.keys(layers).length ? 'IGN BD TOPO' : 'aucune';
+    if (layers.troncon_de_route) CACHE.osm.set(sKey, osm);
   }
   if (withB) { buildings = osm.buildings; bsrc = 'OpenStreetMap'; }
   setProgress(undefined, `${t.id} : orthophoto et relief…`);
   const ortho = await orthoP; await demP;
-  return { buildings, bsrc, osm, ortho };
+  return { buildings, bsrc, osm, ortho, nsrc };
 }
 
 // ----------------------------- THREE.JS -----------------------------
@@ -2536,7 +2612,7 @@ async function runGeneration() {
         batchRecs.push(lightRecord(rec)); disposeRecord(rec);
         log(`✓ ${t.id} → GLB ${fmtMo(glb.byteLength)}`, 'ok');
       } else addRecord(rec);
-      log(`✓ ${t.id} : ${fmt(s.batiments)} bâtiments (${data.bsrc}), ${s.routesKm.toLocaleString('fr-FR')} km de voies, ${fmt(s.arbres)} arbres, ${fmt(s.triangles)} triangles — sol : ${rec.sol}`, 'ok');
+      log(`✓ ${t.id} : ${fmt(s.batiments)} bâtiments (${data.bsrc}), ${s.routesKm.toLocaleString('fr-FR')} km de voies (${data.nsrc}), ${fmt(s.arbres)} arbres, ${fmt(s.triangles)} triangles — sol : ${rec.sol}`, 'ok');
       okCount++;
     } catch (e) {
       console.error(e);
@@ -2876,7 +2952,7 @@ async function runDiagnostics(autoClose = true) {
     const tx = document.createElement('span'); tx.textContent = l;
     e.append(ic, tx); box.appendChild(e); li[k] = { ic, tx };
   }
-  const set = (k, ok, note) => { li[k].ic.className = ok ? 'ok' : 'ko'; li[k].ic.textContent = ok ? '✔' : '✘'; if (note) li[k].tx.textContent += ' — ' + note; };
+  const set = (k, ok, note) => { li[k].ic.className = ok ? 'ok' : 'ko'; li[k].ic.textContent = ok ? '✓\uFE0E' : '✗\uFE0E'; if (note) li[k].tx.textContent += ' — ' + note; };
   const r = { js: true };
   set('js', true);
   r.map = !!window.maplibregl; set('map', r.map, r.map ? '' : 'non chargée');
@@ -2885,7 +2961,7 @@ async function runDiagnostics(autoClose = true) {
   const ovBody = 'data=' + encodeURIComponent('[out:json][timeout:5];node(1);out;');
   const [ign, osm, three] = await Promise.all([
     fetchWithTimeout(ORTHO_SRC.ign.url(5, 16, 11), { mode: 'cors' }, 10000).then(x => x.ok).catch(() => false),
-    Promise.any(OVERPASS.slice(0, 2).map(u => fetchWithTimeout(u, { method: 'POST', body: ovBody, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }, 15000)
+    Promise.any(OVERPASS.map(u => fetchWithTimeout(u, { method: 'POST', body: ovBody, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }, 15000)
       .then(x => (x.ok ? true : Promise.reject(new Error('HTTP ' + x.status)))))).catch(() => false),
     import('three').then(() => true).catch(() => false),
   ]);
@@ -2899,14 +2975,16 @@ async function runDiagnostics(autoClose = true) {
     if (!three) notes.push('Le moteur 3D ne se charge pas (accès à cdn.jsdelivr.net bloqué, ou navigateur trop ancien : iOS 16.4 minimum).');
     if (!r.webgl) notes.push('WebGL est désactivé : la vue 3D ne peut pas s’afficher. Activez l’accélération matérielle du navigateur.');
     if (!ign) notes.push('L’IGN ne répond pas : bâtiments et photos viendront d’OpenStreetMap et d’Esri.');
-    if (!osm) notes.push('OpenStreetMap (Overpass) ne répond pas pour l’instant : réessayez dans quelques minutes.');
+    if (!osm && ign) notes.push('OpenStreetMap ne répond pas : les routes, l’eau et la végétation viendront de la BD TOPO de l’IGN. La génération fonctionne quand même (sans arbres isolés ni places piétonnes).');
+    else if (!osm) notes.push('OpenStreetMap ne répond pas pour l’instant : réessayez dans quelques minutes.');
   }
-  const allOk = r.map && r.webgl && ign && osm && three;
-  $('bootTitle').textContent = allOk ? 'Tout est prêt ✔' : 'Problème détecté';
+  st.ovDown = !osm;
+  const allOk = r.map && r.webgl && ign && three;
+  $('bootTitle').textContent = allOk ? (osm ? 'Tout est prêt ✓\uFE0E' : 'Prêt (routes via l’IGN) ✓\uFE0E') : 'Problème détecté';
   if (notes.length) { adv.textContent = notes.join(' '); adv.hidden = false; }
   log(`Diagnostic : carte ${r.map ? 'OK' : 'KO'}, WebGL ${r.webgl ? 'OK' : 'KO'}, IGN ${ign ? 'OK' : 'KO'}, OSM ${osm ? 'OK' : 'KO'}, 3D ${three ? 'OK' : 'KO'}`, allOk ? 'ok' : 'warn');
   setStatus(allOk ? 'Perpignan — prêt' : 'Problème détecté : voir le diagnostic');
-  if (allOk && autoClose) setTimeout(hideBoot, 900);
+  if (allOk && autoClose) setTimeout(hideBoot, osm ? 900 : 4500);
   return r;
 }
 
