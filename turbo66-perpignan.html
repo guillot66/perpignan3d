@@ -180,6 +180,7 @@ body.touch #obj{top:calc(92px + var(--st))}
   <b>1.</b> Crée un compte gratuit sur <a href="https://ion.cesium.com/signup" style="color:#7fd3ff">ion.cesium.com</a>, puis copie ton <i>Default token</i> (onglet « Access Tokens »).<br>
   <b>2.</b> Colle-le ci-dessous et appuie sur ACTIVER. (Une clé Google Maps « AIza… » avec Map Tiles API marche aussi.)<br>
   <b>3.</b> Joue depuis ton GitHub Pages ou Safari : l’aperçu de l’app Claude bloque internet.</div>
+  <div class="box"><b>Où afficher le décor Google ?</b><br><span style="opacity:.75;font-size:12px">La 3D de Google est superbe vue d’en haut, mais floue et « fondue » au ras du sol (arbres, voitures). Conseillé : vue du ciel seulement (bouton 🎥), et les bâtiments du jeu au niveau de la rue.</span><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn" id="gmw2" style="font-size:15px;padding:8px 14px;margin:0">Vue du ciel seulement</button><button class="btn g" id="gmw1" style="font-size:15px;padding:8px 14px;margin:0">Partout</button></div></div>
   <div class="box"><input id="gmtok" placeholder="Jeton Cesium ion (eyJ…) ou clé Google (AIza…)" autocomplete="off" autocapitalize="off" spellcheck="false"><div id="gmstat"></div></div>
   <div id="pbtns"><button class="btn" id="gmon">ACTIVER</button><button class="btn g" id="gmoff">DÉSACTIVER</button><button class="btn g" id="gmclose">RETOUR</button></div>
 </div>
@@ -3833,9 +3834,9 @@ function render(dt) {
   if (!gmA) { gl.bindVertexArray(skyVAO); gl.drawArrays(gl.TRIANGLES, 0, 3); }
   // glows
   const pu = progPt.u; gl.useProgram(progPt.p); gl.uniformMatrix4fv(pu.uVP, false, VP); gl.uniform3f(pu.uCam, cam.x, cam.y, cam.z); gl.uniform1f(pu.uFogDen, ENV.fogDen * 0.8);
-  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); if (gmA) gl.colorMask(true, true, true, false); // halos additifs sans toucher l'alpha (décor Google dessous)
   gl.uniform1f(pu.uMode, 0);
-  if (ENV.lamp > 0.02) { gl.uniform1f(pu.uScale, H * 0.5 * ENV.lamp); gl.bindVertexArray(glowPts.vao); gl.drawArrays(gl.POINTS, 0, glowPts.n); }
+  if (ENV.lamp > 0.02 && !gmA) { gl.uniform1f(pu.uScale, H * 0.5 * ENV.lamp); gl.bindVertexArray(glowPts.vao); gl.drawArrays(gl.POINTS, 0, glowPts.n); }
   dynPts.n = 0; buildDynGlows(vc); ptsUpload(dynPts); gl.uniform1f(pu.uScale, H * 0.5); gl.bindVertexArray(dynPts.vao); gl.drawArrays(gl.POINTS, 0, dynPts.n);
   // particles
   partPts.n = 0; for (const p of particles) if (p.add) ptsPush(partPts, p.x, p.y, p.z, p.r, p.g, p.b, p.s); const nAdd = partPts.n;
@@ -3843,7 +3844,7 @@ function render(dt) {
   ptsUpload(partPts); gl.bindVertexArray(partPts.vao);
   if (nAdd) gl.drawArrays(gl.POINTS, 0, nAdd);
   if (partPts.n > nAdd) { gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.uniform1f(pu.uMode, 1); gl.drawArrays(gl.POINTS, nAdd, partPts.n - nAdd); }
-  gl.disable(gl.BLEND); gl.depthMask(true); gl.bindVertexArray(null);
+  gl.disable(gl.BLEND); gl.depthMask(true); gl.bindVertexArray(null); if (gmA) gl.colorMask(true, true, true, true);
   return drawn;
 }
 function buildDynGlows(vc) {
@@ -4536,6 +4537,8 @@ $('#g3open').addEventListener('click', openGM);
 $('#gmon').addEventListener('click', () => gmEnable($('#gmtok').value));
 $('#gmoff').addEventListener('click', gmDisable);
 $('#gmclose').addEventListener('click', closeGM);
+$('#gmw1').addEventListener('click', () => gmSetWhere('partout'));
+$('#gmw2').addEventListener('click', () => gmSetWhere('ciel'));
 $('#gclose').addEventListener('click', () => { closeGarage(); });
 $('#qclose').addEventListener('click', () => { closeQuartiers(); });
 $('#camb').addEventListener('click', () => { cycleCam(); });
@@ -4735,10 +4738,20 @@ function gmToken() { try { return localStorage.getItem('t66gm') || ''; } catch (
 function gmLoadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.async = true; s.onload = res; s.onerror = () => rej(new Error('chargement impossible : ' + src)); document.head.appendChild(s); }); }
 function gmStatus(t) { GM.err = t; const e = document.getElementById('gmstat'); if (e) e.textContent = t; }
 async function gmEnable(token) {
-  if (GM.loading) return; token = (token || '').trim(); if (!token) { gmStatus('Colle d’abord ton jeton Cesium ion (ou ta clé Google).'); return; }
+  if (GM.loading) return; token = (token || '').replace(/\s+/g, '').replace(/^["'«»]+|["'«»]+$/g, ''); if (!token) { gmStatus('Colle d’abord ton jeton Cesium ion (ou ta clé Google).'); return; }
   try { localStorage.setItem('t66gm', token); localStorage.setItem('t66gmOn', '1'); } catch (e) { }
   if (GM.ready) { GM.on = true; GM.div.style.display = ''; gmStatus('Mode Google 3D activé.'); return; }
-  GM.loading = true; gmStatus('Chargement de CesiumJS…');
+  GM.loading = true;
+  if (!/^AIza/.test(token)) { // contrôle du jeton Cesium ion avant de charger le moteur
+    const parts = token.split('.');
+    if (parts.length !== 3 || token.length < 120) { gmStatus(`Jeton incomplet : ${token.length} caractères collés (un jeton Cesium en fait environ 180, en 3 morceaux séparés par des points). Recopie-le en entier avec le bouton Copy.`); GM.loading = false; return; }
+    gmStatus('Vérification du jeton auprès de Cesium ion…');
+    try { const r = await fetch(`https://api.cesium.com/v1/assets/2275207/endpoint?access_token=${encodeURIComponent(token)}`);
+      if (!r.ok) { let msg = ''; try { const j = await r.json(); msg = j.message || j.code || ''; } catch (e) { }
+        gmStatus(r.status === 404 ? `Cesium ion : « Google Photorealistic 3D Tiles » n’est pas dans tes My Assets (${msg || 'erreur 404'}). Ajoute-le depuis l’Asset Depot.` : `Cesium ion refuse ce jeton (erreur ${r.status}${msg ? ' : ' + msg : ''}). Le jeton collé fait ${token.length} caractères et commence par ${token.slice(0, 12)}… Recopie le « Default Token » en entier, ou crée-en un nouveau (Create token) et copie-le aussitôt.`);
+        GM.loading = false; return; } } catch (e) { }
+  }
+  gmStatus('Chargement de CesiumJS…');
   try {
     const base = `https://cdn.jsdelivr.net/npm/cesium@${GM.ver}/Build/Cesium/`; window.CESIUM_BASE_URL = base;
     if (!window.Cesium) await gmLoadScript(base + 'Cesium.js');
@@ -4748,8 +4761,10 @@ async function gmEnable(token) {
     const w = new C.CesiumWidget(div, { baseLayer: false, scene3DOnly: true, useDefaultRenderLoop: false, creditContainer: cred, msaaSamples: 1, requestRenderMode: false });
     w.scene.globe.show = false; w.scene.skyAtmosphere.show = true; w.scene.fog.enabled = true; if (w.scene.skyBox) w.scene.skyBox.show = false;
     w.scene.screenSpaceCameraController.enableInputs = false; GM.w = w;
+    try { w.useBrowserRecommendedResolution = false; w.resolutionScale = Math.min(1, 1.6 / (window.devicePixelRatio || 1)); } catch (e) { }
+    w.scene.highDynamicRange = false; w.scene.postProcessStages.fxaa.enabled = true;
     gmStatus('Connexion aux tuiles 3D…');
-    const opts = { showCreditsOnScreen: true, maximumScreenSpaceError: IS_TOUCH ? 24 : 16 };
+    const opts = { showCreditsOnScreen: true, maximumScreenSpaceError: IS_TOUCH ? 10 : 6, dynamicScreenSpaceError: false, skipLevelOfDetail: false, foveatedScreenSpaceError: true };
     try { opts.cacheBytes = (IS_TOUCH ? 384 : 768) * 1024 * 1024; } catch (e) { }
     let ts;
     if (/^AIza/.test(token)) ts = await C.Cesium3DTileset.fromUrl(new C.Resource({ url: 'https://tile.googleapis.com/v1/3dtiles/root.json', queryParameters: { key: token } }), opts);
@@ -4764,12 +4779,16 @@ async function gmEnable(token) {
   GM.loading = false;
 }
 function gmDisable() { GM.on = false; if (GM.div) GM.div.style.display = 'none'; try { localStorage.setItem('t66gmOn', '0'); } catch (e) { } gmStatus('Mode Google 3D désactivé : retour aux bâtiments du jeu.'); }
-function gmActive() { return GM.on && GM.ready && !player.inside; }
+function gmWhere() { try { return localStorage.getItem('t66gmWhere') || 'ciel'; } catch (e) { return 'ciel'; } }
+function gmActive() { return GM.on && GM.ready && !player.inside && (gmWhere() === 'partout' || cam.mode === 3 || cam.y > 14); }
 function gmCalibrate() { // aligne le sol de Google sur le sol du jeu (y = 0) autour du joueur
   const C = window.Cesium, sc = GM.w.scene, px = player.mode === 'car' && player.car ? player.car.x : player.x, pz = player.mode === 'car' && player.car ? player.car.z : player.z;
-  let hmin = Infinity; for (const [dx, dz] of [[0, 0], [3, 0], [-3, 0], [0, 3], [0, -3]]) { try { const h = sc.sampleHeight(C.Cartographic.fromDegrees(GEO.lon(px + dx, pz + dz), GEO.lat(px + dx, pz + dz))); if (h !== undefined && isFinite(h)) hmin = Math.min(hmin, h); } catch (e) { } }
-  if (!isFinite(hmin)) return;
-  if (GM.calN === 0 || Math.abs(hmin - GM.H0) > 25) GM.H0 = hmin; else GM.H0 += (hmin - GM.H0) * 0.35; GM.calN++;
+  // médiane de 7 mesures autour des pieds (évite le lit de la rivière, les arbres, les voitures garées)
+  const hs = []; for (const [dx, dz] of [[0, 0], [1.2, 0], [-1.2, 0], [0, 1.2], [0, -1.2], [0.9, 0.9], [-0.9, -0.9]]) { try { const h = sc.sampleHeight(C.Cartographic.fromDegrees(GEO.lon(px + dx, pz + dz), GEO.lat(px + dx, pz + dz))); if (h !== undefined && isFinite(h)) hs.push(h); } catch (e) { } }
+  if (hs.length < 3) return; hs.sort((a, b) => a - b); const hm = hs[hs.length >> 1];
+  if (GM.calN === 0) { GM.H0 = hm; GM.calN = 1; GM.rej = 0; return; }
+  if (Math.abs(hm - GM.H0) > 3 && (GM.rej = (GM.rej || 0) + 1) < 6) return; // saut suspect : on attend confirmation
+  GM.rej = 0; GM.H0 += (hm - GM.H0) * 0.4; GM.calN++;
 }
 function gmSync(dt) {
   if (!GM.ready || !GM.div) return;
@@ -4786,10 +4805,12 @@ function gmSync(dt) {
 }
 function openGM() {
   if (!started) return;
-  $('#gmtok').value = gmToken(); gmStatus(GM.on ? 'Mode Google 3D actif.' : (GM.err || ''));
+  $('#gmtok').value = gmToken(); gmWhereUI(); gmStatus(GM.on ? 'Mode Google 3D actif.' : (GM.err || ''));
   GM.open = true; paused = true; $('#pause').classList.add('hide'); $('#gmpanel').classList.remove('hide'); $('#touch').classList.add('hide');
 }
 function closeGM() { GM.open = false; paused = false; $('#gmpanel').classList.add('hide'); $('#touch').classList.toggle('hide', !IS_TOUCH); }
+function gmWhereUI() { const w = gmWhere(); $('#gmw1').classList.toggle('g', w !== 'ciel'); $('#gmw2').classList.toggle('g', w !== 'partout'); }
+function gmSetWhere(w) { try { localStorage.setItem('t66gmWhere', w); } catch (e) { } gmWhereUI(); }
 function gmAutoStart() { try { if (localStorage.getItem('t66gmOn') === '1' && gmToken()) gmEnable(gmToken()); } catch (e) { } }
 
 })();
